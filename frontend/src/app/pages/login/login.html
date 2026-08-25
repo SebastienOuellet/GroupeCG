@@ -1,0 +1,27 @@
+<div class="login-page">
+  <form class="login-card" (ngSubmit)="onSubmit()">
+    <img class="login-card__logo" src="images/logo.png" alt="Groupe CG" />
+
+    @if (configError()) {
+      <p class="login-card__warning">{{ configError() }}</p>
+    }
+
+    <label class="field">
+      <span>Courriel</span>
+      <input type="email" name="email" [(ngModel)]="email" required autocomplete="email" />
+    </label>
+
+    <label class="field">
+      <span>Mot de passe</span>
+      <input type="password" name="password" [(ngModel)]="password" required autocomplete="current-password" />
+    </label>
+
+    @if (error()) {
+      <p class="login-card__error">{{ error() }}</p>
+    }
+
+    <button type="submit" class="btn-primary" [disabled]="loading()">
+      {{ loading() ? "Connexion..." : "Se connecter" }}
+    </button>
+  </form>
+</div>
