@@ -1,0 +1,12 @@
+/.idea/
+
+**/node_modules/
+
+/backend/.env*
+/backend/logs/
+/backend/firebaseConfig/*.json
+
+/frontend/.angular/
+/frontend/dist/
+/frontend/localhost-key.pem
+/frontend/localhost.pem
