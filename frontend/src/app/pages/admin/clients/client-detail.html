@@ -1,0 +1,195 @@
+@if (client(); as c) {
+  <div class="page-header">
+    <h1>Client #{{ c.ClientNumber }}</h1>
+    <button type="button" class="btn-danger" (click)="deactivateClient()">Désactiver</button>
+  </div>
+
+  @if (error()) {
+    <div class="error-banner">{{ error() }}</div>
+  }
+
+  <div class="card">
+    <h2>Informations</h2>
+    <form (ngSubmit)="saveClient()">
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Prénom</span>
+          <input name="FirstName" [(ngModel)]="clientForm.FirstName" />
+        </label>
+        <label class="form-field">
+          <span>Nom</span>
+          <input name="LastName" [(ngModel)]="clientForm.LastName" />
+        </label>
+        <label class="form-field">
+          <span>Entreprise</span>
+          <input name="CompanyName" [(ngModel)]="clientForm.CompanyName" />
+        </label>
+        <label class="form-field">
+          <span>Courriel</span>
+          <input type="email" name="Email" [(ngModel)]="clientForm.Email" />
+        </label>
+        <label class="form-field">
+          <span>Téléphone</span>
+          <input type="tel" name="Phone" [(ngModel)]="clientForm.Phone" />
+        </label>
+        <label class="form-field">
+          <span>Notes</span>
+          <input name="Notes" [(ngModel)]="clientForm.Notes" />
+        </label>
+      </div>
+      <div style="display: flex; gap: 1.5rem; margin-bottom: 1rem">
+        <label class="form-field form-field--checkbox">
+          <input type="checkbox" name="SmsConsent" [(ngModel)]="clientForm.SmsConsent" />
+          <span>Consentement SMS</span>
+        </label>
+        <label class="form-field form-field--checkbox">
+          <input type="checkbox" name="EmailConsent" [(ngModel)]="clientForm.EmailConsent" />
+          <span>Consentement courriel</span>
+        </label>
+      </div>
+      <button type="submit" class="btn-primary" [disabled]="saving()">Enregistrer</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem">
+      <h2 style="margin: 0">Adresses de service</h2>
+      <button type="button" class="btn-outline" (click)="openAddressForm()">+ Ajouter une adresse</button>
+    </div>
+
+    @if (showAddressForm()) {
+      <form (ngSubmit)="saveAddress()" style="margin-bottom: 1.25rem">
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Numéro civique</span>
+            <input name="CivicNumber" [(ngModel)]="addressForm.CivicNumber" required />
+          </label>
+          <label class="form-field">
+            <span>Rue</span>
+            <input name="Street" [(ngModel)]="addressForm.Street" required />
+          </label>
+          <label class="form-field">
+            <span>Ville</span>
+            <input name="City" [(ngModel)]="addressForm.City" required />
+          </label>
+          <label class="form-field">
+            <span>Code postal</span>
+            <input name="PostalCode" [(ngModel)]="addressForm.PostalCode" required />
+          </label>
+          <label class="form-field">
+            <span>Notes (accès, bornes...)</span>
+            <input name="Notes" [(ngModel)]="addressForm.Notes" />
+          </label>
+        </div>
+        <button type="submit" class="btn-primary" [disabled]="saving()">Créer l'adresse</button>
+        <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showAddressForm.set(false)">Annuler</button>
+      </form>
+    }
+
+    @if ((c.ServiceAddresses ?? []).length === 0) {
+      <p class="empty-state">Aucune adresse.</p>
+    }
+
+    @for (address of c.ServiceAddresses; track address.Id) {
+      <div style="border: 1px solid #e3e6ea; border-radius: 8px; padding: 1rem; margin-bottom: 1rem">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem">
+          <strong>{{ address.CivicNumber }} {{ address.Street }}, {{ address.City }} {{ address.PostalCode }}</strong>
+          <button type="button" class="btn-outline" (click)="openTenantForm(address.Id)">+ Locataire</button>
+        </div>
+        @if (address.Notes) {
+          <p style="margin: 0 0 0.5rem; font-size: 0.8125rem; color: #7a8591">{{ address.Notes }}</p>
+        }
+
+        @if (tenantFormAddressId() === address.Id) {
+          <form (ngSubmit)="saveTenant()" style="margin: 0.75rem 0">
+            <div class="form-grid">
+              <label class="form-field">
+                <span>Prénom</span>
+                <input name="TFirstName" [(ngModel)]="tenantForm.FirstName" />
+              </label>
+              <label class="form-field">
+                <span>Nom</span>
+                <input name="TLastName" [(ngModel)]="tenantForm.LastName" />
+              </label>
+              <label class="form-field">
+                <span>Téléphone</span>
+                <input type="tel" name="TPhone" [(ngModel)]="tenantForm.Phone" />
+              </label>
+              <label class="form-field">
+                <span>Courriel</span>
+                <input type="email" name="TEmail" [(ngModel)]="tenantForm.Email" />
+              </label>
+            </div>
+            <button type="submit" class="btn-primary" [disabled]="saving()">Ajouter</button>
+            <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="tenantFormAddressId.set(null)">Annuler</button>
+          </form>
+        }
+
+        @if ((tenantsByAddress()[address.Id] || []).length > 0) {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Locataire</th>
+                <th>Téléphone</th>
+                <th>Courriel</th>
+                <th>SMS</th>
+                <th>Courriel OK</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (tenant of tenantsByAddress()[address.Id]; track tenant.Id) {
+                <tr>
+                  <td>{{ tenantName(tenant) }}</td>
+                  <td>{{ tenant.Phone || "—" }}</td>
+                  <td>{{ tenant.Email || "—" }}</td>
+                  <td>{{ tenant.SmsConsent ? "✓" : "✗" }}</td>
+                  <td>{{ tenant.EmailConsent ? "✓" : "✗" }}</td>
+                  <td>
+                    <button type="button" class="btn-danger" (click)="removeTenant(tenant)">Retirer</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p style="font-size: 0.8125rem; color: #7a8591; margin: 0.25rem 0 0">Aucun locataire à cette adresse.</p>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="card">
+    <h2>Contrats</h2>
+    @if ((c.Contracts ?? []).length === 0) {
+      <p class="empty-state">Aucun contrat.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Référence</th>
+            <th># Contrat</th>
+            <th>Saison</th>
+            <th>Prix</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (contract of c.Contracts; track contract.Id) {
+            <tr class="clickable" [routerLink]="['/contrats', contract.Id]">
+              <td><strong>{{ contract.Reference }}</strong></td>
+              <td>{{ contract.ContractNumber }}</td>
+              <td>{{ contract.SeasonStartYear }}-{{ contract.SeasonStartYear + 1 }}</td>
+              <td>{{ contract.Price }} $</td>
+              <td><span class="badge badge--{{ contract.Status }}">{{ contract.Status }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+} @else if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+} @else {
+  <p class="empty-state">Chargement...</p>
+}

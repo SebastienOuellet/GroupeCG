@@ -15,7 +15,7 @@ export default [
       "indent": ["error", 2],
       "semi": ["error", "always"],
       "quotes": ["error", "double"],
-      "no-unused-vars": "warn",
+      "no-unused-vars": ["warn", { "ignoreRestSiblings": true }],
       "no-console": "warn"
     }
   },

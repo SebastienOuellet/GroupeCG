@@ -3,13 +3,15 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
-  type User
+  type User as FirebaseUser
 } from "firebase/auth";
 import { FirebaseService } from "../firebase.service";
+import { User } from "../models/user.model";
 
 /**
  * État d'authentification centralisé (signals). Le token est mis en cache pour
  * l'intercepteur HTTP; Firebase le rafraîchit automatiquement toutes les heures.
+ * `dbUser` porte le profil applicatif (dont le Role) chargé depuis l'API.
  */
 @Injectable({
   providedIn: "root"
@@ -17,15 +19,18 @@ import { FirebaseService } from "../firebase.service";
 export class AuthStore {
   private readonly firebaseService = inject(FirebaseService);
 
-  private readonly user = signal<User | null>(null);
+  private readonly user = signal<FirebaseUser | null>(null);
   private readonly token = signal<string | null>(null);
   private readonly initialized = signal(false);
+  private readonly appUser = signal<User | null>(null);
 
   readonly currentUser = computed(() => this.user());
   readonly userToken = computed(() => this.token());
   readonly isAuthenticated = computed(() => this.user() !== null);
   readonly isInitialized = computed(() => this.initialized());
   readonly configError = computed(() => this.firebaseService.initError);
+  readonly dbUser = computed(() => this.appUser());
+  readonly role = computed(() => this.appUser()?.Role ?? null);
 
   constructor() {
     const auth = this.firebaseService.auth;
@@ -39,8 +44,15 @@ export class AuthStore {
     onAuthStateChanged(auth, async (firebaseUser) => {
       this.user.set(firebaseUser);
       this.token.set(firebaseUser ? await firebaseUser.getIdToken() : null);
+      if (!firebaseUser) {
+        this.appUser.set(null);
+      }
       this.initialized.set(true);
     });
+  }
+
+  setDbUser(user: User | null): void {
+    this.appUser.set(user);
   }
 
   async login(email: string, password: string): Promise<void> {

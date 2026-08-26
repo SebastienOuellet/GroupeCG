@@ -1,0 +1,91 @@
+@if (contract(); as c) {
+  <div class="page-header">
+    <h1>Contrat {{ c.Reference }} <span style="font-weight: 400; font-size: 1rem; color: #7a8591">(# {{ c.ContractNumber }})</span></h1>
+    <span class="badge badge--{{ c.Status }}">{{ c.Status }}</span>
+  </div>
+
+  @if (error()) {
+    <div class="error-banner">{{ error() }}</div>
+  }
+
+  <div class="card">
+    <h2>Résumé</h2>
+    <table class="data-table">
+      <tbody>
+        <tr>
+          <th>Client</th>
+          <td>
+            @if (c.Client) {
+              <a [routerLink]="['/clients', c.Client.Id]">#{{ c.Client.ClientNumber }} — {{ c.Client.CompanyName || c.Client.FirstName + " " + c.Client.LastName }}</a>
+            } @else { — }
+          </td>
+        </tr>
+        <tr>
+          <th>Adresse de service</th>
+          <td>
+            @if (c.ServiceAddress; as a) {
+              {{ a.CivicNumber }} {{ a.Street }}, {{ a.City }} {{ a.PostalCode }}
+            } @else { — }
+          </td>
+        </tr>
+        <tr>
+          <th>Saison</th>
+          <td>{{ c.SeasonStartYear }}-{{ c.SeasonStartYear + 1 }}</td>
+        </tr>
+        @if (c.RenewedFromContractId) {
+          <tr>
+            <th>Renouvelé depuis</th>
+            <td><a [routerLink]="['/contrats', c.RenewedFromContractId]">contrat précédent</a></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Modifier</h2>
+    <form (ngSubmit)="save()">
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Route</span>
+          <select name="RouteId" [(ngModel)]="form.RouteId">
+            <option [ngValue]="null">Aucune</option>
+            @for (route of routes(); track route.Id) {
+              <option [ngValue]="route.Id">{{ route.Name }}</option>
+            }
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Début</span>
+          <input type="date" name="StartDate" [(ngModel)]="form.StartDate" />
+        </label>
+        <label class="form-field">
+          <span>Fin</span>
+          <input type="date" name="EndDate" [(ngModel)]="form.EndDate" />
+        </label>
+        <label class="form-field">
+          <span>Prix ($)</span>
+          <input type="number" step="0.01" name="Price" [(ngModel)]="form.Price" />
+        </label>
+        <label class="form-field">
+          <span>Statut</span>
+          <select name="Status" [(ngModel)]="form.Status">
+            <option value="draft">Brouillon</option>
+            <option value="active">Actif</option>
+            <option value="completed">Terminé</option>
+            <option value="cancelled">Annulé</option>
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Notes</span>
+          <input name="Notes" [(ngModel)]="form.Notes" />
+        </label>
+      </div>
+      <button type="submit" class="btn-primary" [disabled]="saving()">Enregistrer</button>
+    </form>
+  </div>
+} @else if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+} @else {
+  <p class="empty-state">Chargement...</p>
+}

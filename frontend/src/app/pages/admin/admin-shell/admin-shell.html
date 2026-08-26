@@ -1,0 +1,22 @@
+<div class="shell">
+  <aside class="sidebar">
+    <img class="sidebar__logo" src="images/logo.png" alt="Groupe CG" />
+
+    <nav class="sidebar__nav">
+      <a routerLink="/clients" routerLinkActive="active">Clients</a>
+      <a routerLink="/contrats" routerLinkActive="active">Contrats</a>
+      <a routerLink="/routes" routerLinkActive="active">Routes</a>
+    </nav>
+
+    <div class="sidebar__footer">
+      @if (dbUser(); as user) {
+        <span class="sidebar__user">{{ user.Name || user.Email }}</span>
+      }
+      <button type="button" class="btn-secondary" (click)="logout()">Déconnexion</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <router-outlet />
+  </main>
+</div>

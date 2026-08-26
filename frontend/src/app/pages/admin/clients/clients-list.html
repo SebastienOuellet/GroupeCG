@@ -1,0 +1,89 @@
+<div class="page-header">
+  <h1>Clients</h1>
+  <button type="button" class="btn-primary" (click)="openForm()">+ Nouveau client</button>
+</div>
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+
+@if (showForm()) {
+  <div class="card">
+    <h2>Nouveau client</h2>
+    <form (ngSubmit)="save()">
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Prénom</span>
+          <input name="FirstName" [(ngModel)]="form.FirstName" />
+        </label>
+        <label class="form-field">
+          <span>Nom</span>
+          <input name="LastName" [(ngModel)]="form.LastName" />
+        </label>
+        <label class="form-field">
+          <span>Entreprise</span>
+          <input name="CompanyName" [(ngModel)]="form.CompanyName" />
+        </label>
+        <label class="form-field">
+          <span>Courriel</span>
+          <input type="email" name="Email" [(ngModel)]="form.Email" />
+        </label>
+        <label class="form-field">
+          <span>Téléphone</span>
+          <input type="tel" name="Phone" [(ngModel)]="form.Phone" placeholder="+14185551234" />
+        </label>
+        <label class="form-field">
+          <span>Notes</span>
+          <input name="Notes" [(ngModel)]="form.Notes" />
+        </label>
+      </div>
+      <button type="submit" class="btn-primary" [disabled]="saving()">Créer</button>
+      <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showForm.set(false)">Annuler</button>
+    </form>
+  </div>
+}
+
+<div class="card">
+  <form (ngSubmit)="load()" style="margin-bottom: 1rem; display: flex; gap: 0.5rem">
+    <input
+      name="search"
+      [(ngModel)]="search"
+      placeholder="Rechercher par numéro, nom, entreprise..."
+      style="flex: 1; padding: 0.5rem 0.625rem; border: 1px solid #d0d5dd; border-radius: 6px"
+    />
+    <button type="submit" class="btn-outline">Rechercher</button>
+  </form>
+
+  @if (loading()) {
+    <p class="empty-state">Chargement...</p>
+  } @else if (clients().length === 0) {
+    <p class="empty-state">Aucun client.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nom</th>
+          <th>Courriel</th>
+          <th>Téléphone</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (client of clients(); track client.Id) {
+          <tr class="clickable" (click)="open(client)">
+            <td><strong>{{ client.ClientNumber }}</strong></td>
+            <td>{{ displayName(client) }}</td>
+            <td>{{ client.Email || "—" }}</td>
+            <td>{{ client.Phone || "—" }}</td>
+            <td>
+              <span class="badge" [class.badge--active]="client.IsActive" [class.badge--inactive]="!client.IsActive">
+                {{ client.IsActive ? "Actif" : "Inactif" }}
+              </span>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

@@ -1,0 +1,146 @@
+<div class="page-header">
+  <h1>Contrats</h1>
+  <div style="display: flex; gap: 0.5rem">
+    <button type="button" class="btn-outline" (click)="rollover()">Roulement de saison</button>
+    <button type="button" class="btn-primary" (click)="openForm()">+ Nouveau contrat</button>
+  </div>
+</div>
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+@if (info()) {
+  <div class="card" style="border-left: 4px solid #1e7a3c">{{ info() }}</div>
+}
+
+@if (showForm()) {
+  <div class="card">
+    <h2>Nouveau contrat</h2>
+    <form (ngSubmit)="save()">
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Client</span>
+          <select name="ClientId" [(ngModel)]="form.ClientId" (ngModelChange)="onClientChange()" required>
+            <option [ngValue]="undefined">Choisir...</option>
+            @for (client of clients(); track client.Id) {
+              <option [ngValue]="client.Id">{{ clientDisplay(client) }}</option>
+            }
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Adresse de service</span>
+          <select name="ServiceAddressId" [(ngModel)]="form.ServiceAddressId" required [disabled]="clientAddresses().length === 0">
+            <option [ngValue]="undefined">Choisir...</option>
+            @for (address of clientAddresses(); track address.Id) {
+              <option [ngValue]="address.Id">{{ address.CivicNumber }} {{ address.Street }}, {{ address.City }}</option>
+            }
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Route</span>
+          <select name="RouteId" [(ngModel)]="form.RouteId">
+            <option [ngValue]="null">Aucune</option>
+            @for (route of routes(); track route.Id) {
+              <option [ngValue]="route.Id">{{ route.Name }}</option>
+            }
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Saison (année de début)</span>
+          <select name="SeasonStartYear" [(ngModel)]="form.SeasonStartYear" required>
+            @for (year of seasonYears; track year) {
+              <option [ngValue]="year">{{ year }}-{{ year + 1 }}</option>
+            }
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Début</span>
+          <input type="date" name="StartDate" [(ngModel)]="form.StartDate" required />
+        </label>
+        <label class="form-field">
+          <span>Fin</span>
+          <input type="date" name="EndDate" [(ngModel)]="form.EndDate" required />
+        </label>
+        <label class="form-field">
+          <span>Prix ($)</span>
+          <input type="number" step="0.01" name="Price" [(ngModel)]="form.Price" required />
+        </label>
+        <label class="form-field">
+          <span>Statut</span>
+          <select name="Status" [(ngModel)]="form.Status">
+            <option value="draft">Brouillon</option>
+            <option value="active">Actif</option>
+          </select>
+        </label>
+      </div>
+      <button type="submit" class="btn-primary" [disabled]="saving()">Créer</button>
+      <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showForm.set(false)">Annuler</button>
+    </form>
+  </div>
+}
+
+<div class="card">
+  <form (ngSubmit)="load()" style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap">
+    <label class="form-field">
+      <span>Saison</span>
+      <select name="fSeason" [(ngModel)]="filters.seasonYear" (ngModelChange)="load()">
+        <option value="">Toutes</option>
+        @for (year of seasonYears; track year) {
+          <option [value]="year">{{ year }}-{{ year + 1 }}</option>
+        }
+      </select>
+    </label>
+    <label class="form-field">
+      <span>Statut</span>
+      <select name="fStatus" [(ngModel)]="filters.status" (ngModelChange)="load()">
+        <option value="">Tous</option>
+        <option value="draft">Brouillon</option>
+        <option value="active">Actif</option>
+        <option value="completed">Terminé</option>
+        <option value="cancelled">Annulé</option>
+      </select>
+    </label>
+    <label class="form-field">
+      <span>Route</span>
+      <select name="fRoute" [(ngModel)]="filters.routeId" (ngModelChange)="load()">
+        <option value="">Toutes</option>
+        @for (route of routes(); track route.Id) {
+          <option [value]="route.Id">{{ route.Name }}</option>
+        }
+      </select>
+    </label>
+  </form>
+
+  @if (loading()) {
+    <p class="empty-state">Chargement...</p>
+  } @else if (contracts().length === 0) {
+    <p class="empty-state">Aucun contrat.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Référence</th>
+          <th># Contrat</th>
+          <th>Client</th>
+          <th>Adresse</th>
+          <th>Route</th>
+          <th>Prix</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (contract of contracts(); track contract.Id) {
+          <tr class="clickable" (click)="open(contract)">
+            <td><strong>{{ contract.Reference }}</strong></td>
+            <td>{{ contract.ContractNumber }}</td>
+            <td>{{ clientLabel(contract) }}</td>
+            <td>{{ addressLabel(contract) }}</td>
+            <td>{{ contract.Route?.Name || "—" }}</td>
+            <td>{{ contract.Price }} $</td>
+            <td><span class="badge badge--{{ contract.Status }}">{{ contract.Status }}</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
