@@ -1,0 +1,72 @@
+@if (batch(); as b) {
+  <div class="page-header">
+    <h1>Envoi #{{ b.Id }}</h1>
+    <div style="display: flex; gap: 0.5rem; align-items: center">
+      <button type="button" class="btn-outline" (click)="refresh()">Rafraîchir</button>
+      <a routerLink="/notifications" class="btn-outline" style="text-decoration: none">← Retour</a>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="error-banner">{{ error() }}</div>
+  }
+
+  <div class="card">
+    <h2>Résumé</h2>
+    <table class="data-table">
+      <tbody>
+        <tr><th>Date</th><td>{{ b.createdAt | slice: 0 : 16 }}</td></tr>
+        <tr><th>Cible</th><td>{{ b.TargetType }}{{ b.TargetId ? " #" + b.TargetId : "" }}</td></tr>
+        <tr><th>Créé par</th><td>{{ b.CreatedBy?.Name || b.CreatedBy?.Email || "Système (cron)" }}</td></tr>
+        @if (b.SmsBody) {
+          <tr><th>SMS</th><td style="white-space: pre-line">{{ b.SmsBody }}</td></tr>
+        }
+        @if (b.EmailSubject) {
+          <tr><th>Courriel</th><td><strong>{{ b.EmailSubject }}</strong><br /><span style="white-space: pre-line">{{ b.EmailBody }}</span></td></tr>
+        }
+        <tr>
+          <th>Bilan</th>
+          <td>{{ b.SentCount }} envoyés / {{ b.FailedCount }} échecs / {{ b.SkippedCount }} ignorés (sur {{ b.TotalCount }})</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Livraisons par destinataire</h2>
+    @if (deliveries().length === 0) {
+      <p class="empty-state">Aucune livraison.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Canal</th>
+            <th>Type</th>
+            <th>Contact</th>
+            <th>Statut</th>
+            <th>Tentatives</th>
+            <th>Envoyé le</th>
+            <th>Erreur</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (delivery of deliveries(); track delivery.Id) {
+            <tr>
+              <td>{{ delivery.Channel === "sms" ? "SMS" : "Courriel" }}</td>
+              <td>{{ delivery.RecipientType === "client" ? "Client" : "Locataire" }}</td>
+              <td>{{ delivery.ContactAddress }}</td>
+              <td><span class="badge {{ badgeClass(delivery.Status) }}">{{ statusLabels[delivery.Status] || delivery.Status }}</span></td>
+              <td>{{ delivery.Attempts }}</td>
+              <td>{{ delivery.SentAt ? (delivery.SentAt | slice: 0 : 16) : "—" }}</td>
+              <td style="max-width: 260px; overflow: hidden; text-overflow: ellipsis">{{ delivery.LastError || "—" }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+} @else if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+} @else {
+  <p class="empty-state">Chargement...</p>
+}

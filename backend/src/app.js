@@ -1,6 +1,7 @@
 import { Routes } from "./routes/Routes.js";
 import { Server } from "./server/Server.js";
 import { ConfigService } from "./config/configService.js";
+import { notificationWorker } from "./notifications/NotificationWorker.js";
 
 const configService = new ConfigService();
 const config = configService.getAll();
@@ -10,3 +11,5 @@ const routes = new Routes(server);
 
 server.setRoutes(routes.routes());
 server.setHandleErrors();
+
+notificationWorker.start();

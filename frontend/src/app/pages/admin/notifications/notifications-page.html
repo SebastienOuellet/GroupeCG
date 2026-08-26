@@ -1,0 +1,142 @@
+<div class="page-header">
+  <h1>Notifications</h1>
+</div>
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+@if (info()) {
+  <div class="card" style="border-left: 4px solid #1e7a3c">{{ info() }}</div>
+}
+
+<div class="card">
+  <h2>Composer un envoi</h2>
+  <form (ngSubmit)="send()">
+    <div class="form-grid">
+      <label class="form-field">
+        <span>Cible</span>
+        <select name="targetType" [(ngModel)]="form.targetType">
+          <option value="route">Une route</option>
+          <option value="contract">Un contrat</option>
+          <option value="all">Tous les contrats actifs</option>
+        </select>
+      </label>
+
+      @if (form.targetType === "route") {
+        <label class="form-field">
+          <span>Route</span>
+          <select name="targetId" [(ngModel)]="form.targetId">
+            <option [ngValue]="null">Choisir...</option>
+            @for (route of routes(); track route.Id) {
+              <option [ngValue]="route.Id">{{ route.Name }}</option>
+            }
+          </select>
+        </label>
+      } @else if (form.targetType === "contract") {
+        <label class="form-field">
+          <span>Contrat</span>
+          <select name="targetId" [(ngModel)]="form.targetId">
+            <option [ngValue]="null">Choisir...</option>
+            @for (contract of contracts(); track contract.Id) {
+              <option [ngValue]="contract.Id">{{ contract.Reference }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <label class="form-field">
+        <span>Modèle (optionnel)</span>
+        <select name="templateId" [(ngModel)]="form.templateId" (ngModelChange)="onTemplateChange()">
+          <option [ngValue]="null">Aucun — composer manuellement</option>
+          @for (template of templates(); track template.Id) {
+            <option [ngValue]="template.Id">{{ template.Name }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    <div style="display: flex; gap: 1.5rem; margin-bottom: 1rem">
+      <label class="form-field form-field--checkbox">
+        <input type="checkbox" name="useSms" [(ngModel)]="form.useSms" />
+        <span>SMS</span>
+      </label>
+      <label class="form-field form-field--checkbox">
+        <input type="checkbox" name="useEmail" [(ngModel)]="form.useEmail" />
+        <span>Courriel</span>
+      </label>
+    </div>
+
+    @if (form.useSms) {
+      <label class="form-field" style="margin-bottom: 0.5rem">
+        <span>Corps SMS</span>
+        <textarea name="smsBody" [(ngModel)]="form.smsBody" rows="3" required></textarea>
+      </label>
+      <p style="font-size: 0.8125rem; color: #7a8591; margin: 0 0 1rem">
+        Aperçu : <em style="white-space: pre-line">{{ smsPreview }}</em>
+      </p>
+    }
+
+    @if (form.useEmail) {
+      <label class="form-field" style="margin-bottom: 0.875rem">
+        <span>Sujet courriel</span>
+        <input name="emailSubject" [(ngModel)]="form.emailSubject" required />
+      </label>
+      <label class="form-field" style="margin-bottom: 0.5rem">
+        <span>Corps courriel</span>
+        <textarea name="emailBody" [(ngModel)]="form.emailBody" rows="5" required></textarea>
+      </label>
+      <p style="font-size: 0.8125rem; color: #7a8591; margin: 0 0 1rem">
+        Un lien « Se désabonner » est ajouté automatiquement au bas du courriel.
+      </p>
+    }
+
+    <button type="submit" class="btn-primary" [disabled]="sending()">
+      {{ sending() ? "Mise en file..." : "Envoyer" }}
+    </button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Historique des envois</h2>
+  @if (batches().length === 0) {
+    <p class="empty-state">Aucun envoi.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Date</th>
+          <th>Cible</th>
+          <th>Canaux</th>
+          <th>Destinataires</th>
+          <th>Envoyés</th>
+          <th>Échecs</th>
+          <th>Ignorés</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (batch of batches(); track batch.Id) {
+          <tr class="clickable" (click)="openBatch(batch)">
+            <td>{{ batch.Id }}</td>
+            <td>{{ batch.createdAt | slice: 0 : 16 }}</td>
+            <td>{{ targetLabels[batch.TargetType] }}{{ batch.TargetId ? " #" + batch.TargetId : "" }}</td>
+            <td>{{ batch.UseSms ? "SMS " : "" }}{{ batch.UseEmail ? "Courriel" : "" }}</td>
+            <td>{{ batch.TotalCount }}</td>
+            <td>{{ batch.SentCount }}</td>
+            <td>{{ batch.FailedCount }}</td>
+            <td>{{ batch.SkippedCount }}</td>
+            <td>
+              <span
+                class="badge"
+                [class.badge--active]="batch.Status === 'completed'"
+                [class.badge--draft]="batch.Status === 'pending' || batch.Status === 'processing'"
+                [class.badge--cancelled]="batch.Status === 'failed'"
+              >{{ statusLabels[batch.Status] || batch.Status }}</span>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

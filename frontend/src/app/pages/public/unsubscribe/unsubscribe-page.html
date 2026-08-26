@@ -1,0 +1,24 @@
+<div class="unsubscribe-page">
+  <div class="unsubscribe-card">
+    <img src="images/logo.png" alt="Groupe CG" class="unsubscribe-card__logo" />
+
+    @switch (state()) {
+      @case ("loading") {
+        <p>Vérification du lien...</p>
+      }
+      @case ("confirm") {
+        <h1>Se désabonner</h1>
+        <p>Ne plus recevoir de courriels de déneigement à <strong>{{ email() }}</strong> ?</p>
+        <button type="button" class="btn-primary" (click)="confirm()">Confirmer le désabonnement</button>
+      }
+      @case ("done") {
+        <h1>Désabonnement confirmé</h1>
+        <p>L'adresse <strong>{{ email() }}</strong> ne recevra plus de courriels de notre part.</p>
+      }
+      @case ("invalid") {
+        <h1>Lien invalide</h1>
+        <p>Ce lien de désabonnement est invalide ou expiré. Contactez-nous si le problème persiste.</p>
+      }
+    }
+  </div>
+</div>

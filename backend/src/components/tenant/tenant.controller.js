@@ -28,7 +28,7 @@ const getTenantById = async (req, res, next) => {
 
 const createTenant = async (req, res, next) => {
   try {
-    const tenant = await tenantService.createTenant(req.body);
+    const tenant = await tenantService.createTenant(req.body, { actorUserId: req.user?.Id });
     res.status(201).json(tenant);
   } catch (error) {
     next(error);
@@ -37,7 +37,7 @@ const createTenant = async (req, res, next) => {
 
 const updateTenant = async (req, res, next) => {
   try {
-    const tenant = await tenantService.updateTenant(req.params.id, req.body);
+    const tenant = await tenantService.updateTenant(req.params.id, req.body, { actorUserId: req.user?.Id });
     res.status(200).json(tenant);
   } catch (error) {
     next(error);

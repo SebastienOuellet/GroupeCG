@@ -1,0 +1,33 @@
+.unsubscribe-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--color-secondary);
+}
+
+.unsubscribe-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 2.5rem 2rem;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  text-align: center;
+
+  &__logo {
+    height: 64px;
+    margin-bottom: 1rem;
+  }
+
+  h1 {
+    font-size: 1.25rem;
+    color: var(--color-primary);
+    margin: 0 0 0.75rem;
+  }
+
+  p {
+    color: var(--color-secondary);
+    font-size: 0.9375rem;
+  }
+}

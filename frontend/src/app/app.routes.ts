@@ -9,6 +9,10 @@ export const routes: Routes = [
     loadComponent: () => import("./pages/login/login").then((m) => m.Login)
   },
   {
+    path: "desabonnement",
+    loadComponent: () => import("./pages/public/unsubscribe/unsubscribe-page").then((m) => m.UnsubscribePage)
+  },
+  {
     path: "",
     canMatch: [authGuard, roleGuard("admin")],
     loadComponent: () => import("./pages/admin/admin-shell/admin-shell").then((m) => m.AdminShell),
@@ -33,6 +37,18 @@ export const routes: Routes = [
       {
         path: "routes",
         loadComponent: () => import("./pages/admin/routes/routes-list").then((m) => m.RoutesList)
+      },
+      {
+        path: "modeles",
+        loadComponent: () => import("./pages/admin/templates/templates-list").then((m) => m.TemplatesList)
+      },
+      {
+        path: "notifications",
+        loadComponent: () => import("./pages/admin/notifications/notifications-page").then((m) => m.NotificationsPage)
+      },
+      {
+        path: "notifications/:id",
+        loadComponent: () => import("./pages/admin/notifications/batch-detail").then((m) => m.BatchDetail)
       }
     ]
   },
