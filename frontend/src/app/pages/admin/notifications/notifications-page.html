@@ -71,9 +71,18 @@
         <span>Corps SMS</span>
         <textarea name="smsBody" [(ngModel)]="form.smsBody" rows="3" required></textarea>
       </label>
-      <p style="font-size: 0.8125rem; color: #7a8591; margin: 0 0 1rem">
+      <p style="font-size: 0.8125rem; color: #7a8591; margin: 0 0 0.375rem">
         Aperçu : <em style="white-space: pre-line">{{ smsPreview }}</em>
       </p>
+      @if (smsSegmentInfo; as sms) {
+        <p style="font-size: 0.8125rem; margin: 0 0 1rem" [style.color]="sms.segments > 1 ? '#a06000' : '#1e7a3c'">
+          <strong>{{ sms.chars }} caractères — {{ sms.segments }} segment{{ sms.segments > 1 ? "s" : "" }} SMS facturé{{ sms.segments > 1 ? "s" : "" }} par destinataire</strong>
+          (encodage {{ sms.encoding }})
+          @if (sms.encoding === "UCS-2") {
+            <br />⚠ Les caractères {{ sms.ucs2Culprits.join(" ") }} forcent l'encodage Unicode : limite de 70 caractères par segment au lieu de 160. Remplacez-les pour réduire le coût (ex. ê → e).
+          }
+        </p>
+      }
     }
 
     @if (form.useEmail) {

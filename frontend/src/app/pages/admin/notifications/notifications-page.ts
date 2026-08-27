@@ -8,6 +8,7 @@ import { RouteService } from "../../../core/services/route.service";
 import { ContractService } from "../../../core/services/contract.service";
 import { NotificationBatch, NotificationTemplate, TargetType } from "../../../core/models/notification.model";
 import { Contract, RouteModel } from "../../../core/models/domain.model";
+import { calculateSmsSegments, SmsSegmentInfo } from "../../../core/utils/sms-segments";
 
 @Component({
   selector: "app-notifications-page",
@@ -80,6 +81,11 @@ export class NotificationsPage implements OnInit {
 
   get smsPreview(): string {
     return `${this.form.smsBody}\nRépondez ARRET pour vous désabonner.`;
+  }
+
+  /** Segments SMS facturés, calculés sur le message final (pied ARRET inclus). */
+  get smsSegmentInfo(): SmsSegmentInfo {
+    return calculateSmsSegments(this.smsPreview);
   }
 
   async send(): Promise<void> {

@@ -30,10 +30,21 @@
           </select>
         </label>
       </div>
-      <label class="form-field" style="margin-bottom: 0.875rem">
+      <label class="form-field" style="margin-bottom: 0.25rem">
         <span>Corps SMS</span>
         <textarea name="SmsBody" [(ngModel)]="form.SmsBody" rows="3"></textarea>
       </label>
+      @if (form.SmsBody) {
+        @if (smsSegmentInfo; as sms) {
+          <p style="font-size: 0.8125rem; margin: 0 0 0.875rem" [style.color]="sms.segments > 1 ? '#a06000' : '#1e7a3c'">
+            <strong>{{ sms.chars }} caractères — {{ sms.segments }} segment{{ sms.segments > 1 ? "s" : "" }} SMS par destinataire</strong>
+            (pied ARRET inclus, encodage {{ sms.encoding }})
+            @if (sms.encoding === "UCS-2") {
+              <br />⚠ Les caractères {{ sms.ucs2Culprits.join(" ") }} forcent l'encodage Unicode (segments de 70 au lieu de 160).
+            }
+          </p>
+        }
+      }
       <label class="form-field" style="margin-bottom: 0.875rem">
         <span>Sujet courriel</span>
         <input name="EmailSubject" [(ngModel)]="form.EmailSubject" />
