@@ -1,6 +1,7 @@
 import { Routes } from "@angular/router";
 import { authGuard, guestGuard } from "./core/auth/auth.guard";
 import { roleGuard } from "./core/auth/role.guard";
+import { portalGuard } from "./core/portal/portal.guard";
 
 export const routes: Routes = [
   {
@@ -11,6 +12,15 @@ export const routes: Routes = [
   {
     path: "desabonnement",
     loadComponent: () => import("./pages/public/unsubscribe/unsubscribe-page").then((m) => m.UnsubscribePage)
+  },
+  {
+    path: "portail",
+    loadComponent: () => import("./pages/public/portal/portal-login").then((m) => m.PortalLogin)
+  },
+  {
+    path: "portail/gestion",
+    canMatch: [portalGuard],
+    loadComponent: () => import("./pages/public/portal/portal-manage").then((m) => m.PortalManage)
   },
   {
     path: "",

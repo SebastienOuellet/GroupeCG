@@ -1,0 +1,22 @@
+.portal-manage {
+  min-height: 100vh;
+  background: #f5f6f8;
+}
+
+.portal-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: var(--color-primary);
+
+  &__logo {
+    height: 32px;
+  }
+}
+
+.portal-content {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}

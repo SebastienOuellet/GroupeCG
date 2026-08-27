@@ -1,0 +1,29 @@
+<div class="portal-page">
+  <form class="portal-card" (ngSubmit)="onSubmit()">
+    <img class="portal-card__logo" src="images/logo.png" alt="Groupe CG" />
+    <h1>Espace client</h1>
+    <p class="portal-card__hint">Gérez les personnes à joindre chez vous pour les avis de déneigement.</p>
+
+    <label class="field">
+      <span>Référence client (ex. 26-1001)</span>
+      <input name="reference" [(ngModel)]="reference" required autocomplete="off" />
+    </label>
+
+    <label class="field">
+      <span>Numéro de contrat</span>
+      <input name="contractNumber" [(ngModel)]="contractNumber" inputmode="numeric" required autocomplete="off" />
+    </label>
+
+    @if (error()) {
+      <p class="portal-card__error">{{ error() }}</p>
+    }
+
+    <button type="submit" class="btn-primary" [disabled]="loading()">
+      {{ loading() ? "Vérification..." : "Accéder à mon dossier" }}
+    </button>
+
+    <p class="portal-card__hint">
+      Ces informations se trouvent sur votre contrat de déneigement.
+    </p>
+  </form>
+</div>

@@ -1,0 +1,67 @@
+.portal-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--color-secondary);
+  padding: 1rem;
+}
+
+.portal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 380px;
+  padding: 2.5rem 2rem;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+
+  &__logo {
+    align-self: center;
+    height: 64px;
+    margin-bottom: 0.25rem;
+  }
+
+  h1 {
+    margin: 0;
+    text-align: center;
+    font-size: 1.25rem;
+    color: var(--color-primary);
+  }
+
+  &__hint {
+    margin: 0;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: #7a8591;
+  }
+
+  &__error {
+    margin: 0;
+    color: #c0392b;
+    font-size: 0.875rem;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--color-secondary);
+
+  input {
+    padding: 0.625rem 0.75rem;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    font-size: 1rem;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(5, 34, 97, 0.15);
+    }
+  }
+}

@@ -1,0 +1,107 @@
+<div class="portal-manage">
+  <header class="portal-topbar">
+    <img class="portal-topbar__logo" src="images/logo.png" alt="Groupe CG" />
+    <button type="button" class="btn-secondary" (click)="logout()">Quitter</button>
+  </header>
+
+  <main class="portal-content">
+    @if (error()) {
+      <div class="error-banner">{{ error() }}</div>
+    }
+    @if (info()) {
+      <div class="card" style="border-left: 4px solid #1e7a3c">{{ info() }}</div>
+    }
+
+    @if (me(); as m) {
+      <div class="card">
+        <h2>Mon contrat</h2>
+        <p>
+          Référence <strong>{{ m.contract.Reference }}</strong> — {{ m.contract.SeasonStartYear }}-{{ m.contract.SeasonStartYear + 1 }}<br />
+          {{ m.serviceAddress.CivicNumber }} {{ m.serviceAddress.Street }}, {{ m.serviceAddress.City }} {{ m.serviceAddress.PostalCode }}
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Mes préférences de notification</h2>
+        <p style="font-size: 0.8125rem; color: #7a8591; margin-top: -0.5rem">
+          Ces avis vous informent avant le passage du déneigeur (ex. déplacer votre véhicule).
+        </p>
+        <form (ngSubmit)="savePreferences()">
+          <div style="display: flex; gap: 1.5rem; margin-bottom: 1rem">
+            <label class="form-field form-field--checkbox">
+              <input type="checkbox" name="SmsConsent" [(ngModel)]="preferences.SmsConsent" />
+              <span>Recevoir les avis par SMS ({{ m.client.Phone || "aucun numéro" }})</span>
+            </label>
+            <label class="form-field form-field--checkbox">
+              <input type="checkbox" name="EmailConsent" [(ngModel)]="preferences.EmailConsent" />
+              <span>Recevoir les avis par courriel ({{ m.client.Email || "aucun courriel" }})</span>
+            </label>
+          </div>
+          <button type="submit" class="btn-primary" [disabled]="saving()">Enregistrer</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem">
+          <h2 style="margin: 0">Personnes à joindre à cette adresse</h2>
+          <button type="button" class="btn-outline" (click)="openTenantForm()">+ Ajouter</button>
+        </div>
+        <p style="font-size: 0.8125rem; color: #7a8591; margin-top: -0.5rem">
+          Locataires, membres de la famille ou autres personnes qui devraient être avisées avant le déneigement.
+        </p>
+
+        @if (showTenantForm()) {
+          <form (ngSubmit)="saveTenant()" style="margin-bottom: 1.25rem">
+            <div class="form-grid">
+              <label class="form-field">
+                <span>Prénom</span>
+                <input name="FirstName" [(ngModel)]="tenantForm.FirstName" />
+              </label>
+              <label class="form-field">
+                <span>Nom</span>
+                <input name="LastName" [(ngModel)]="tenantForm.LastName" />
+              </label>
+              <label class="form-field">
+                <span>Téléphone</span>
+                <input type="tel" name="Phone" [(ngModel)]="tenantForm.Phone" />
+              </label>
+              <label class="form-field">
+                <span>Courriel</span>
+                <input type="email" name="Email" [(ngModel)]="tenantForm.Email" />
+              </label>
+            </div>
+            <button type="submit" class="btn-primary" [disabled]="saving()">Ajouter</button>
+            <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showTenantForm.set(false)">Annuler</button>
+          </form>
+        }
+
+        @if (m.tenants.length === 0) {
+          <p class="empty-state">Aucune personne ajoutée.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Téléphone</th>
+                <th>Courriel</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (tenant of m.tenants; track tenant.Id) {
+                <tr>
+                  <td>{{ tenantName(tenant) }}</td>
+                  <td>{{ tenant.Phone || "—" }}</td>
+                  <td>{{ tenant.Email || "—" }}</td>
+                  <td><button type="button" class="btn-danger" (click)="removeTenant(tenant)">Retirer</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    } @else if (!error()) {
+      <p class="empty-state">Chargement...</p>
+    }
+  </main>
+</div>

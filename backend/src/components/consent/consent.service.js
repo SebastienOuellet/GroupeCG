@@ -20,6 +20,11 @@ const normalizeEmail = (email) => String(email || "").trim().toLowerCase() || nu
 export const normalizeAddress = (channel, address) =>
   channel === CHANNELS.SMS ? normalizePhone(address) : normalizeEmail(address);
 
+const CONSENT_FIELDS = [
+  { field: "SmsConsent", channel: CHANNELS.SMS, addressField: "Phone" },
+  { field: "EmailConsent", channel: CHANNELS.EMAIL, addressField: "Email" }
+];
+
 /** Journal d'audit Loi 25 — append-only. */
 export const logConsent = async ({ personType, personId, channel, address, action, method, actorUserId, ipAddress, metadata }) => {
   return ConsentLog.create({
@@ -33,6 +38,32 @@ export const logConsent = async ({ personType, personId, channel, address, actio
     IpAddress: ipAddress || null,
     Metadata: metadata || null
   });
+};
+
+/**
+ * Journalise les changements de consentement d'une personne (Client ou
+ * Tenant partagent les mêmes champs SmsConsent/EmailConsent/Phone/Email).
+ * À appeler après avoir modifié et sauvegardé `person`, avec son état avant.
+ */
+export const logPersonConsentChanges = async (personType, person, previous, { method, actorUserId, ipAddress } = {}) => {
+  for (const { field, channel, addressField } of CONSENT_FIELDS) {
+    const address = person[addressField];
+    if (!address) continue;
+    const before = previous ? previous[field] : null;
+    const after = person[field];
+    if (before === after) continue;
+
+    await logConsent({
+      personType,
+      personId: person.Id,
+      channel,
+      address: normalizeAddress(channel, address),
+      action: after ? CONSENT_ACTIONS.GRANTED : CONSENT_ACTIONS.REVOKED,
+      method,
+      actorUserId,
+      ipAddress
+    });
+  }
 };
 
 export const getConsentLogs = async ({ address } = {}) => {
