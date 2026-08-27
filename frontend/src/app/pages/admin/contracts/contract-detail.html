@@ -84,6 +84,72 @@
       <button type="submit" class="btn-primary" [disabled]="saving()">Enregistrer</button>
     </form>
   </div>
+
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem">
+      <h2 style="margin: 0">Factures</h2>
+      <button type="button" class="btn-outline" (click)="openInvoiceForm()">+ Nouvelle facture</button>
+    </div>
+
+    @if (showInvoiceForm()) {
+      <form (ngSubmit)="saveInvoice()" style="margin-bottom: 1.25rem">
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Montant ($)</span>
+            <input type="number" step="0.01" name="invAmount" [(ngModel)]="invoiceForm.amount" required />
+          </label>
+          <label class="form-field">
+            <span>Échéance</span>
+            <input type="date" name="invDueDate" [(ngModel)]="invoiceForm.dueDate" />
+          </label>
+          <label class="form-field">
+            <span>Notes</span>
+            <input name="invNotes" [(ngModel)]="invoiceForm.notes" />
+          </label>
+        </div>
+        <button type="submit" class="btn-primary" [disabled]="saving()">Créer</button>
+        <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showInvoiceForm.set(false)">Annuler</button>
+      </form>
+    }
+
+    @if (invoices().length === 0) {
+      <p class="empty-state">Aucune facture pour ce contrat.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Numéro</th>
+            <th>Montant</th>
+            <th>Échéance</th>
+            <th>Statut</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (invoice of invoices(); track invoice.Id) {
+            <tr>
+              <td><strong>{{ invoice.InvoiceNumber }}</strong></td>
+              <td>{{ invoice.Amount }} $</td>
+              <td>{{ invoice.DueDate || "—" }}</td>
+              <td>
+                <span
+                  class="badge"
+                  [class.badge--active]="invoice.Status === 'paid'"
+                  [class.badge--draft]="invoice.Status === 'draft' || invoice.Status === 'sent'"
+                  [class.badge--cancelled]="invoice.Status === 'overdue' || invoice.Status === 'cancelled'"
+                >{{ invoice.Status }}</span>
+              </td>
+              <td>
+                @if (invoice.Status !== "paid" && invoice.Status !== "cancelled") {
+                  <button type="button" class="btn-outline" (click)="markInvoicePaid(invoice)">Marquer payée</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
 } @else if (error()) {
   <div class="error-banner">{{ error() }}</div>
 } @else {

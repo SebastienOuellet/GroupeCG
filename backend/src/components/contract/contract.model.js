@@ -75,6 +75,7 @@ export default (sequelize) => {
     Contract.belongsTo(db.ServiceAddress, { foreignKey: "ServiceAddressId", as: "ServiceAddress" });
     Contract.belongsTo(db.Route, { foreignKey: "RouteId", as: "Route" });
     Contract.belongsTo(db.Contract, { foreignKey: "RenewedFromContractId", as: "RenewedFrom" });
+    Contract.hasMany(db.Invoice, { foreignKey: "ContractId", as: "Invoices" });
   };
 
   return Contract;

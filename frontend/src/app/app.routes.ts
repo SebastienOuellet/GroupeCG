@@ -59,6 +59,10 @@ export const routes: Routes = [
       {
         path: "notifications/:id",
         loadComponent: () => import("./pages/admin/notifications/batch-detail").then((m) => m.BatchDetail)
+      },
+      {
+        path: "factures",
+        loadComponent: () => import("./pages/admin/invoices/invoices-list").then((m) => m.InvoicesList)
       }
     ]
   },
