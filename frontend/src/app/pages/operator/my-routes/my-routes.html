@@ -1,0 +1,31 @@
+<header class="op-topbar">
+  <img class="op-topbar__logo" src="images/logo.png" alt="Groupe CG" />
+  <button type="button" class="btn-secondary" (click)="logout()">Déconnexion</button>
+</header>
+
+<main class="op-content">
+  <h1>Mes routes</h1>
+
+  @if (error()) {
+    <div class="error-banner">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <p class="empty-state">Chargement...</p>
+  } @else if (routes().length === 0) {
+    <p class="empty-state">Aucune route ne vous est assignée. Contactez l'administrateur.</p>
+  } @else {
+    <div class="route-cards">
+      @for (route of routes(); track route.Id) {
+        <button type="button" class="route-card" (click)="open(route)">
+          <span class="route-card__name">{{ route.Name }}</span>
+          @if (isActive(route)) {
+            <span class="route-card__badge route-card__badge--active">Tournée en cours</span>
+          } @else {
+            <span class="route-card__badge">Pas démarrée</span>
+          }
+        </button>
+      }
+    </div>
+  }
+</main>

@@ -1,0 +1,126 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: #f5f6f8;
+}
+
+.op-topbar {
+  padding: 1rem 1.25rem;
+  background: var(--color-primary);
+
+  &__back {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    padding: 0;
+  }
+}
+
+.op-content {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2rem;
+
+  h1 {
+    font-size: 1.25rem;
+    color: var(--color-primary);
+    margin: 0 0 1rem;
+  }
+}
+
+.start-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem 1.25rem;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+
+  &__hint {
+    font-size: 0.8125rem;
+    color: #7a8591;
+    margin: 0.75rem 0 0;
+  }
+}
+
+.btn-start {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.0625rem;
+  margin-top: 0.5rem;
+}
+
+.progress {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  margin-bottom: 1rem;
+}
+
+.stops {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-bottom: 1.5rem;
+}
+
+.stop-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.875rem 1rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #d0d5dd;
+
+  &--done {
+    border-left-color: #1e7a3c;
+    opacity: 0.75;
+  }
+
+  &--skipped {
+    border-left-color: #a06000;
+    opacity: 0.75;
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+
+    strong {
+      font-size: 0.9375rem;
+      color: var(--color-secondary);
+    }
+
+    span {
+      font-size: 0.8125rem;
+      color: #7a8591;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  &__status {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}
+
+.btn-complete {
+  width: 100%;
+  padding: 0.875rem;
+}

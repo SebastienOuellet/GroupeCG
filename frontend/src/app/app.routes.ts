@@ -1,6 +1,7 @@
 import { Routes } from "@angular/router";
 import { authGuard, guestGuard } from "./core/auth/auth.guard";
 import { roleGuard } from "./core/auth/role.guard";
+import { homeGuard } from "./core/auth/home.guard";
 import { portalGuard } from "./core/portal/portal.guard";
 
 export const routes: Routes = [
@@ -23,8 +24,18 @@ export const routes: Routes = [
     loadComponent: () => import("./pages/public/portal/portal-manage").then((m) => m.PortalManage)
   },
   {
+    path: "operateur",
+    canMatch: [authGuard, roleGuard("admin", "operator")],
+    loadComponent: () => import("./pages/operator/my-routes/my-routes").then((m) => m.MyRoutes)
+  },
+  {
+    path: "operateur/route/:id",
+    canMatch: [authGuard, roleGuard("admin", "operator")],
+    loadComponent: () => import("./pages/operator/route-run/route-run-page").then((m) => m.RouteRunPage)
+  },
+  {
     path: "",
-    canMatch: [authGuard, roleGuard("admin")],
+    canMatch: [authGuard, homeGuard],
     loadComponent: () => import("./pages/admin/admin-shell/admin-shell").then((m) => m.AdminShell),
     children: [
       { path: "", pathMatch: "full", redirectTo: "clients" },

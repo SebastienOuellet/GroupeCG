@@ -1,0 +1,57 @@
+<header class="op-topbar">
+  <button type="button" class="op-topbar__back" (click)="back()">← Mes routes</button>
+</header>
+
+<main class="op-content">
+  @if (error()) {
+    <div class="error-banner">{{ error() }}</div>
+  }
+
+  @if (route(); as r) {
+    <h1>{{ r.Name }}</h1>
+
+    @if (!run()) {
+      <div class="start-card">
+        <p>Aucune tournée en cours pour cette route.</p>
+        <button type="button" class="btn-primary btn-start" [disabled]="busy()" (click)="startRoute()">
+          {{ busy() ? "Démarrage..." : "🚜 Démarrer la route" }}
+        </button>
+        <p class="start-card__hint">Un avis SMS/courriel sera envoyé aux résidents de la route.</p>
+      </div>
+    } @else {
+      <div class="progress">
+        <span>{{ doneCount }} / {{ totalCount }} arrêt(s) traité(s)</span>
+      </div>
+
+      @if (totalCount === 0) {
+        <p class="empty-state">Aucun contrat actif sur cette route.</p>
+      } @else {
+        <div class="stops">
+          @for (stop of run()?.Stops; track stop.Id) {
+            <div class="stop-card" [class.stop-card--done]="stop.Status === 'done'" [class.stop-card--skipped]="stop.Status === 'skipped'">
+              <div class="stop-card__info">
+                <strong>{{ addressLabel(stop) }}</strong>
+                <span>{{ clientLabel(stop) }}</span>
+              </div>
+              <div class="stop-card__actions">
+                @if (stop.Status === "pending") {
+                  <button type="button" class="btn-outline" (click)="setStopStatus(stop, 'skipped')">Passer</button>
+                  <button type="button" class="btn-primary" (click)="setStopStatus(stop, 'done')">Fait ✓</button>
+                } @else {
+                  <span class="stop-card__status">{{ stop.Status === "done" ? "Fait ✓" : "Passé" }}</span>
+                  <button type="button" class="btn-outline" (click)="setStopStatus(stop, 'pending')">Annuler</button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <button type="button" class="btn-primary btn-complete" [disabled]="busy()" (click)="completeRoute()">
+        {{ busy() ? "..." : "Terminer la tournée" }}
+      </button>
+    }
+  } @else if (!error()) {
+    <p class="empty-state">Chargement...</p>
+  }
+</main>

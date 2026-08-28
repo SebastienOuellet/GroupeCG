@@ -12,6 +12,7 @@ import { webhookController } from "../components/webhook/webhook.controller.js";
 import { unsubscribeController } from "../components/unsubscribe/unsubscribe.controller.js";
 import { portalController } from "../components/portal/portal.controller.js";
 import { invoiceController } from "../components/invoice/invoice.controller.js";
+import { routeRunController } from "../components/routeRun/routeRun.controller.js";
 
 /**
  * Agrège les routes de chaque composant et préfixe chacune par /api/<feature>.
@@ -31,6 +32,7 @@ export class Routes {
       ...notificationController.routes.map(this.addAPIUrl("/notification")),
       ...portalController.routes.map(this.addAPIUrl("/portal")),
       ...routeController.routes.map(this.addAPIUrl("/route")),
+      ...routeRunController.routes.map(this.addAPIUrl("/route-run")),
       ...serviceAddressController.routes.map(this.addAPIUrl("/service-address")),
       ...tenantController.routes.map(this.addAPIUrl("/tenant")),
       ...templateController.routes.map(this.addAPIUrl("/template")),

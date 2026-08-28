@@ -42,6 +42,7 @@ export default (sequelize) => {
   Route.associate = (db) => {
     Route.belongsTo(db.User, { foreignKey: "OperatorUserId", as: "Operator" });
     Route.hasMany(db.Contract, { foreignKey: "RouteId", as: "Contracts" });
+    Route.hasMany(db.RouteRun, { foreignKey: "RouteId", as: "Runs" });
   };
 
   return Route;

@@ -3,6 +3,7 @@ import { requireRole } from "../../middlewares/requireRole.js";
 import { USER_ROLES } from "../user/user.constants.js";
 
 const adminOnly = requireRole(USER_ROLES.ADMIN);
+const readAccess = requireRole([USER_ROLES.ADMIN, USER_ROLES.OPERATOR]);
 
 const getRoutes = async (req, res, next) => {
   try {
@@ -62,9 +63,9 @@ const deactivateRoute = async (req, res, next) => {
 
 export const routeController = {
   routes: [
-    { method: "GET", url: "", middleware: [adminOnly, getRoutes], authRequired: true },
-    { method: "GET", url: "/:id", middleware: [adminOnly, getRouteById], authRequired: true },
-    { method: "GET", url: "/:id/contracts", middleware: [adminOnly, getRouteContracts], authRequired: true },
+    { method: "GET", url: "", middleware: [readAccess, getRoutes], authRequired: true },
+    { method: "GET", url: "/:id", middleware: [readAccess, getRouteById], authRequired: true },
+    { method: "GET", url: "/:id/contracts", middleware: [readAccess, getRouteContracts], authRequired: true },
     { method: "POST", url: "", middleware: [adminOnly, createRoute], authRequired: true },
     { method: "PUT", url: "/:id", middleware: [adminOnly, updateRoute], authRequired: true },
     { method: "DELETE", url: "/:id", middleware: [adminOnly, deactivateRoute], authRequired: true }

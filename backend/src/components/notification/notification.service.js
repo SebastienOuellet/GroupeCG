@@ -86,6 +86,16 @@ export const enqueueBatch = async ({
     await NotificationDelivery.bulkCreate(rows, { transaction });
 
     const queuedCount = rows.filter((r) => r.Status === DELIVERY_STATUS.QUEUED).length;
+
+    // Aucun destinataire: rien à traiter, le worker ne verra jamais ce batch
+    // passer par claimBatch() — il faut le clôturer immédiatement pour
+    // éviter qu'il reste bloqué en "processing" indéfiniment.
+    if (rows.length === 0) {
+      batch.Status = BATCH_STATUS.COMPLETED;
+      batch.CompletedAt = new Date();
+      await batch.save({ transaction });
+    }
+
     logger.info(
       `Batch ${batch.Id} mis en file | cible ${targetType}${targetId ? "#" + targetId : ""} | ${queuedCount}/${rows.length} en file`
     );

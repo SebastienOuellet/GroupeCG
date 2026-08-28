@@ -1,0 +1,65 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: #f5f6f8;
+}
+
+.op-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: var(--color-primary);
+
+  &__logo {
+    height: 32px;
+  }
+}
+
+.op-content {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+
+  h1 {
+    font-size: 1.25rem;
+    color: var(--color-primary);
+    margin: 0 0 1.25rem;
+  }
+}
+
+.route-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.route-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1.25rem 1rem;
+  background: #fff;
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  text-align: left;
+
+  &__badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.65rem;
+    border-radius: 99px;
+    background: #eef0f3;
+    color: #5a646e;
+
+    &--active {
+      background: #e3f4e8;
+      color: #1e7a3c;
+    }
+  }
+}
