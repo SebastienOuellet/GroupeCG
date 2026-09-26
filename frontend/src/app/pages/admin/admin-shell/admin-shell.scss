@@ -20,6 +20,14 @@ $menu-breakpoint: 900px;
   padding: 1.5rem 1rem;
   background: var(--color-primary);
   color: #fff;
+  /* Reste visible pendant le défilement des longues pages */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  transition: width 0.2s ease, padding 0.2s ease;
 
   &__logo {
     width: 72px;
@@ -28,6 +36,7 @@ $menu-breakpoint: 900px;
     background: #fff;
     border-radius: 50%;
     padding: 4px;
+    transition: width 0.2s ease;
   }
 
   &__nav {
@@ -37,11 +46,15 @@ $menu-breakpoint: 900px;
     flex: 1;
 
     a {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
       color: rgba(255, 255, 255, 0.85);
       text-decoration: none;
       padding: 0.625rem 0.875rem;
       border-radius: 6px;
       font-weight: 500;
+      white-space: nowrap;
 
       &:hover {
         background: rgba(255, 255, 255, 0.08);
@@ -54,10 +67,56 @@ $menu-breakpoint: 900px;
     }
   }
 
+  &__icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   &__footer {
     display: flex;
     flex-direction: column;
     gap: 0.625rem;
+  }
+
+  &__collapse {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.875rem;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.875rem;
+    white-space: nowrap;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .sidebar__icon {
+      transition: transform 0.2s ease;
+    }
+  }
+
+  &__logout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+
+    /* Icône seulement en mode réduit */
+    .sidebar__icon {
+      display: none;
+    }
   }
 
   &__user {
@@ -66,6 +125,43 @@ $menu-breakpoint: 900px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+}
+
+/* --- Mode réduit (grand écran) : icônes seulement, libellés en infobulle --- */
+@media (min-width: $menu-breakpoint + 1px) {
+  .shell--collapsed .sidebar {
+    width: 64px;
+    padding: 1rem 0.5rem;
+
+    .sidebar__logo {
+      width: 40px;
+      margin-bottom: 1.25rem;
+      padding: 2px;
+    }
+
+    .sidebar__label,
+    .sidebar__user {
+      display: none;
+    }
+
+    .sidebar__nav a,
+    .sidebar__collapse {
+      justify-content: center;
+      padding: 0.625rem 0;
+    }
+
+    .sidebar__collapse .sidebar__icon {
+      transform: rotate(180deg);
+    }
+
+    .sidebar__logout {
+      padding: 0.625rem 0;
+
+      .sidebar__icon {
+        display: block;
+      }
+    }
   }
 }
 
@@ -136,6 +232,7 @@ $menu-breakpoint: 900px;
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
+    height: auto;
     z-index: 40;
     width: min(280px, 85vw);
     overflow-y: auto;
@@ -151,6 +248,10 @@ $menu-breakpoint: 900px;
     &__nav a {
       padding: 0.875rem;
       font-size: 1.0625rem;
+    }
+
+    &__collapse {
+      display: none;
     }
   }
 
