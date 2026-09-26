@@ -1,0 +1,109 @@
+<app-settings-tabs />
+
+<div class="page-header">
+  <h1>Conditions du contrat</h1>
+</div>
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+@if (info()) {
+  <div class="info-banner">{{ info() }}</div>
+}
+
+@if (loaded()) {
+  <form (ngSubmit)="save()">
+    <p class="form-hint">
+      Ces valeurs sont imprimées dans les conditions du contrat PDF. Elles s'appliquent aux contrats pas encore envoyés ;
+      un contrat déjà envoyé garde les conditions que le client a reçues.
+      @if (updatedAt(); as date) {
+        Dernière modification : {{ date.slice(0, 10) }}.
+      } @else {
+        Valeurs par défaut (contrat papier 2025-2026).
+      }
+    </p>
+
+    <div class="card">
+      <h2>Déneigement</h2>
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Accumulation minimale (cm)</span>
+          <input type="number" inputmode="numeric" min="0" max="100" step="1" name="minSnowfallCm" [(ngModel)]="form.minSnowfallCm" required />
+        </label>
+        <label class="form-field">
+          <span>Maximum couvert par le contrat (cm)</span>
+          <input type="number" inputmode="numeric" min="1" max="2000" step="1" name="maxSnowfallCm" [(ngModel)]="form.maxSnowfallCm" required />
+        </label>
+        <label class="form-field">
+          <span>Moyenne de la région (cm)</span>
+          <input type="number" inputmode="numeric" min="0" max="2000" step="1" name="regionalAverageCm" [(ngModel)]="form.regionalAverageCm" required />
+        </label>
+        <label class="form-field">
+          <span>Charge pour tempête après la date du contrat (%)</span>
+          <input type="number" inputmode="decimal" min="0" max="100" step="0.5" name="lateStormSurchargePercent" [(ngModel)]="form.lateStormSurchargePercent" required />
+        </label>
+      </div>
+      <p class="form-hint">« Le RESPONSABLE déblaiera l'entrée du CLIENT lors des tempêtes de neige (min. {{ form.minSnowfallCm }} cm)… » · « …jusqu'à un maximum de {{ form.maxSnowfallCm }} cm (moyenne de notre région : {{ form.regionalAverageCm }} cm)… »</p>
+    </div>
+
+    <div class="card">
+      <h2>Abrasifs</h2>
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Appel d'épandage à partir de ($, avant taxes)</span>
+          <input type="number" inputmode="decimal" min="0" step="0.01" name="abrasiveCallFrom" [(ngModel)]="form.abrasiveCallFrom" required />
+        </label>
+        <label class="form-field">
+          <span>Baril, par hiver ($)</span>
+          <input type="number" inputmode="decimal" min="0" step="0.01" name="abrasiveBarrelSeason" [(ngModel)]="form.abrasiveBarrelSeason" required />
+        </label>
+        <label class="form-field">
+          <span>Remplissage du baril ($)</span>
+          <input type="number" inputmode="decimal" min="0" step="0.01" name="abrasiveBarrelRefill" [(ngModel)]="form.abrasiveBarrelRefill" required />
+        </label>
+        <label class="form-field">
+          <span>Option d'épandage à partir de ($, avant taxes)</span>
+          <input type="number" inputmode="decimal" min="0" step="0.01" name="abrasiveOptionFrom" [(ngModel)]="form.abrasiveOptionFrom" required />
+        </label>
+      </div>
+      @if (+form.abrasiveCallFrom !== +form.abrasiveOptionFrom) {
+        <div class="warning-banner">
+          Deux tarifs différents seront imprimés : {{ form.abrasiveCallFrom }} $ dans les clauses et {{ form.abrasiveOptionFrom }} $ dans l'option d'épandage. Vérifiez que c'est voulu.
+        </div>
+      }
+    </div>
+
+    <div class="card">
+      <h2>Date limite de signature</h2>
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Jour</span>
+          <select name="signatureDeadlineDay" [(ngModel)]="form.signatureDeadlineDay">
+            @for (day of days; track day) {
+              <option [ngValue]="day">{{ day }}</option>
+            }
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Mois</span>
+          <select name="signatureDeadlineMonth" [(ngModel)]="form.signatureDeadlineMonth">
+            @for (month of months; track month.value) {
+              <option [ngValue]="month.value">{{ month.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+      <p class="form-hint">
+        « Signer et retourner une copie avant le {{ deadlineLabel() }} » et « offre valide jusqu'au {{ deadlineLabel() }} », dans l'année de début de la saison.
+        Ces deux phrases ne sont imprimées que si le contrat est émis avant cette date.
+      </p>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary" [disabled]="saving()">Enregistrer</button>
+      <button type="button" class="btn-outline" (click)="restoreDefaults()">Rétablir les valeurs par défaut</button>
+    </div>
+  </form>
+} @else if (!error()) {
+  <p class="empty-state">Chargement...</p>
+}

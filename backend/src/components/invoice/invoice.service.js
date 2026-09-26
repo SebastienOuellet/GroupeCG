@@ -3,6 +3,7 @@ import { BadRequestError, ConflictError, NotFoundError } from "../../errors/Erro
 import { logger } from "../../config/logger.js";
 import { DEFAULT_PAYMENT_TERMS_DAYS, INVOICE_STATUS, INVOICE_TYPE } from "./invoice.constants.js";
 import { computeTotals, normalizeLineItems } from "./invoice.money.js";
+import { getContractTerms } from "../setting/setting.service.js";
 
 const { Invoice, InvoiceLine, Contract, ContractItem, Client, sequelize, Sequelize } = db;
 const { Op } = Sequelize;
@@ -267,6 +268,13 @@ export const updateInvoice = async (id, { dueDate, notes, items }) => {
 /** Échéance appliquée à l'envoi : celle demandée, sinon celle du brouillon, sinon délai par défaut. */
 export const resolveDueDate = (invoice, dueDate) => dueDate || invoice.DueDate || addDays(DEFAULT_PAYMENT_TERMS_DAYS);
 
+/** Fige les conditions actuelles (Paramètres › Contrat) sur le paiement d'un contrat qui part chez le client. */
+const freezeTerms = async (invoice) => {
+  if (invoice.Type === INVOICE_TYPE.CONTRACT && !invoice.TermsSnapshot) {
+    invoice.TermsSnapshot = (await getContractTerms()).values;
+  }
+};
+
 export const sendInvoice = async (id, { dueDate, sentToEmail = null } = {}) => {
   const invoice = await getInvoiceById(id);
   if (invoice.Status !== INVOICE_STATUS.DRAFT) {
@@ -276,6 +284,7 @@ export const sendInvoice = async (id, { dueDate, sentToEmail = null } = {}) => {
   invoice.IssuedAt = today();
   invoice.DueDate = resolveDueDate(invoice, dueDate);
   invoice.SentToEmail = sentToEmail;
+  await freezeTerms(invoice);
   await invoice.save();
   logger.info(`Facture marquée envoyée | ${invoice.InvoiceNumber}${sentToEmail ? ` | par courriel à ${sentToEmail}` : ""}`);
   return invoice;
@@ -288,6 +297,7 @@ export const markPaid = async (id) => {
   }
   // Payée directement depuis un brouillon (ex. comptant) : elle est émise aujourd'hui.
   if (!invoice.IssuedAt) invoice.IssuedAt = today();
+  await freezeTerms(invoice);
   invoice.Status = INVOICE_STATUS.PAID;
   invoice.PaidAt = today();
   await invoice.save();

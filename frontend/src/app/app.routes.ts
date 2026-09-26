@@ -91,6 +91,10 @@ export const routes: Routes = [
       {
         path: "parametres",
         loadComponent: () => import("./pages/admin/settings/users-settings").then((m) => m.UsersSettings)
+      },
+      {
+        path: "parametres/contrat",
+        loadComponent: () => import("./pages/admin/settings/contract-settings").then((m) => m.ContractSettings)
       }
     ]
   },

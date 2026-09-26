@@ -13,6 +13,7 @@ import { unsubscribeController } from "../components/unsubscribe/unsubscribe.con
 import { portalController } from "../components/portal/portal.controller.js";
 import { invoiceController } from "../components/invoice/invoice.controller.js";
 import { routeRunController } from "../components/routeRun/routeRun.controller.js";
+import { settingController } from "../components/setting/setting.controller.js";
 
 /**
  * Agrège les routes de chaque composant et préfixe chacune par /api/<feature>.
@@ -34,6 +35,7 @@ export class Routes {
       ...routeController.routes.map(this.addAPIUrl("/route")),
       ...routeRunController.routes.map(this.addAPIUrl("/route-run")),
       ...serviceAddressController.routes.map(this.addAPIUrl("/service-address")),
+      ...settingController.routes.map(this.addAPIUrl("/setting")),
       ...tenantController.routes.map(this.addAPIUrl("/tenant")),
       ...templateController.routes.map(this.addAPIUrl("/template")),
       ...unsubscribeController.routes.map(this.addAPIUrl("/unsubscribe")),

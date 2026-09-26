@@ -53,9 +53,10 @@ const addressLine = (address) =>
  * @param {object} params.invoice   Paiement du contrat (Invoice type contract) avec Lines
  * @param {string} params.dueDate   Date limite de paiement affichée (YYYY-MM-DD)
  * @param {string} params.issueDate Date du document (YYYY-MM-DD)
+ * @param {object} [params.terms]   Valeurs des conditions (Paramètres › Contrat)
  * @returns {Promise<Buffer>}
  */
-export const buildContractPdf = ({ contract, invoice, dueDate, issueDate }) =>
+export const buildContractPdf = ({ contract, invoice, dueDate, issueDate, terms: termValues }) =>
   new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "LETTER",
@@ -209,7 +210,7 @@ export const buildContractPdf = ({ contract, invoice, dueDate, issueDate }) =>
     /* --- Conditions (contrat papier 2025-2026, voir contractTerms.js) --- */
     const company = configService.get("COMPANY_LEGAL_NAME");
     const representative = configService.get("COMPANY_REPRESENTATIVE");
-    const terms = buildContractTerms({ company, amount: formatMoney(invoice.Amount), dueDate: formatDate(dueDate) });
+    const terms = buildContractTerms({ company, amount: formatMoney(invoice.Amount), dueDate: formatDate(dueDate), terms: termValues });
     const bottomLimit = () => doc.page.height - doc.page.margins.bottom;
     const ensureSpace = (height) => {
       if (doc.y + height > bottomLimit()) doc.addPage();
@@ -254,7 +255,7 @@ export const buildContractPdf = ({ contract, invoice, dueDate, issueDate }) =>
     doc.y = optionY + optionHeight + 18;
 
     /* --- Signatures --- */
-    const deadline = signatureDeadline(contract.SeasonStartYear);
+    const deadline = signatureDeadline(contract.SeasonStartYear, termValues);
     const beforeDeadline = issueDate <= deadline;
     ensureSpace(90);
     if (beforeDeadline) {

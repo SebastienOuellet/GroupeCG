@@ -13,6 +13,7 @@ import {
   UserRole
 } from "../../../core/models/user.model";
 import { generateReadablePassword } from "../../../core/utils/password-generator";
+import { SettingsTabs } from "./settings-tabs/settings-tabs";
 
 /** Identifiants à communiquer à l'utilisateur, affichés une seule fois après l'action. */
 interface CredentialsNotice {
@@ -24,7 +25,7 @@ interface CredentialsNotice {
 
 @Component({
   selector: "app-users-settings",
-  imports: [DatePipe, FormsModule],
+  imports: [DatePipe, FormsModule, SettingsTabs],
   templateUrl: "./users-settings.html"
 })
 export class UsersSettings implements OnInit {

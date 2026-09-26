@@ -66,6 +66,10 @@ export default (sequelize) => {
       CancelledAt: {
         type: DataTypes.DATEONLY
       },
+      /** Conditions du contrat figées à l'envoi (type contrat) ; null tant que non envoyé. */
+      TermsSnapshot: {
+        type: DataTypes.JSONB
+      },
       /** Courriel du destinataire quand envoyée par l'application ; null si marquée envoyée à la main. */
       SentToEmail: {
         type: DataTypes.STRING

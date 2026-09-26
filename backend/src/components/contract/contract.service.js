@@ -5,6 +5,7 @@ import { logger } from "../../config/logger.js";
 import { buildContractPdf } from "../../documents/contractPdf.js";
 import { buildContractEmail } from "../../documents/contractEmail.js";
 import { getContractEmailProvider, isContractEmailLive } from "../../notifications/providerFactory.js";
+import { getContractTerms } from "../setting/setting.service.js";
 import * as invoiceService from "../invoice/invoice.service.js";
 import { CONTRACT_INVOICE_ACTION, CONTRACT_INVOICE_ACTIONS, INVOICE_ISSUED_STATUSES, INVOICE_STATUS, INVOICE_TYPE } from "../invoice/invoice.constants.js";
 import { computeTotals, normalizeLineItems } from "../invoice/invoice.money.js";
@@ -358,11 +359,14 @@ const documentDates = (invoice, requestedDueDate) => {
   };
 };
 
+/** Conditions figées si le contrat a été envoyé, sinon les valeurs actuelles des paramètres. */
+const termsFor = async (invoice) => invoice.TermsSnapshot ?? (await getContractTerms()).values;
+
 const documentFilename = (contract, invoice) => `Contrat-${contract.Reference}-${invoice.InvoiceNumber}.pdf`;
 
 export const getContractDocument = async (id, { dueDate } = {}) => {
   const { contract, invoice } = await loadForDocument(id);
-  const buffer = await buildContractPdf({ contract, invoice, ...documentDates(invoice, dueDate) });
+  const buffer = await buildContractPdf({ contract, invoice, ...documentDates(invoice, dueDate), terms: await termsFor(invoice) });
   return { buffer, filename: documentFilename(contract, invoice) };
 };
 
@@ -385,7 +389,7 @@ export const sendContractToClient = async (id, { dueDate } = {}) => {
   }
 
   const dates = documentDates(invoice, dueDate);
-  const pdf = await buildContractPdf({ contract, invoice, ...dates });
+  const pdf = await buildContractPdf({ contract, invoice, ...dates, terms: await termsFor(invoice) });
   const email = buildContractEmail({ contract, invoice, dueDate: dates.dueDate });
 
   // Courriel d'abord : si l'envoi échoue, le contrat reste « à envoyer ».
