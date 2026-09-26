@@ -44,6 +44,7 @@ export default (sequelize) => {
         type: DataTypes.DATEONLY,
         allowNull: false
       },
+      /** Sous-total avant taxes = somme des lignes (Items), recalculé par le service. */
       Price: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false
@@ -76,6 +77,7 @@ export default (sequelize) => {
     Contract.belongsTo(db.Route, { foreignKey: "RouteId", as: "Route" });
     Contract.belongsTo(db.Contract, { foreignKey: "RenewedFromContractId", as: "RenewedFrom" });
     Contract.hasMany(db.Invoice, { foreignKey: "ContractId", as: "Invoices" });
+    Contract.hasMany(db.ContractItem, { foreignKey: "ContractId", as: "Items" });
   };
 
   return Contract;

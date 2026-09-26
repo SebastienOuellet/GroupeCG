@@ -206,7 +206,8 @@
             <th>Référence</th>
             <th># Contrat</th>
             <th>Saison</th>
-            <th>Prix</th>
+            <th class="num">Montant (taxes incl.)</th>
+            <th>Paiement</th>
             <th>Statut</th>
           </tr>
         </thead>
@@ -216,8 +217,44 @@
               <td data-label="Référence"><strong>{{ contract.Reference }}</strong></td>
               <td data-label="# Contrat">{{ contract.ContractNumber }}</td>
               <td data-label="Saison">{{ contract.SeasonStartYear }}-{{ contract.SeasonStartYear + 1 }}</td>
-              <td data-label="Prix">{{ contract.Price }} $</td>
+              <td data-label="Montant (taxes incl.)" class="num">{{ formatMoney(contractTotal(contract)) }}</td>
+              <td data-label="Paiement">
+                @if (contractPayment(contract); as payment) {
+                  <span class="badge badge--{{ payment.Status }}">{{ paymentLabels[payment.Status] }}</span>
+                } @else { — }
+              </td>
               <td data-label="Statut"><span class="badge badge--{{ contract.Status }}">{{ contract.Status }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  <div class="card">
+    <div class="section-header">
+      <h2>Factures de service</h2>
+      <a class="btn-outline" [routerLink]="['/factures/nouvelle']" [queryParams]="{ client: c.Id }">+ Facture de service</a>
+    </div>
+    @if (serviceInvoices().length === 0) {
+      <p class="empty-state">Aucune facture de service. Le paiement des contrats se suit dans la section Contrats.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Numéro</th>
+            <th>Envoyée</th>
+            <th class="num">Total (taxes incl.)</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (invoice of serviceInvoices(); track invoice.Id) {
+            <tr class="clickable" [routerLink]="['/factures', invoice.Id]">
+              <td data-label="Numéro"><strong>{{ invoice.InvoiceNumber }}</strong></td>
+              <td data-label="Envoyée">{{ invoice.IssuedAt || "—" }}</td>
+              <td data-label="Total (taxes incl.)" class="num">{{ formatMoney(invoice.Amount) }}</td>
+              <td data-label="Statut"><span class="badge badge--{{ invoice.Status }}">{{ invoiceStatusLabels[invoice.Status] }}</span></td>
             </tr>
           }
         </tbody>

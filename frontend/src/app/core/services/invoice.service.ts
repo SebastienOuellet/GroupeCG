@@ -1,18 +1,15 @@
 import { inject, Injectable } from "@angular/core";
 import { ApiService } from "../api.service";
-import { Invoice } from "../models/invoice.model";
+import { Invoice, InvoiceType } from "../models/invoice.model";
+import { ContractItem } from "../models/domain.model";
 
 export interface InvoiceFilters {
   contractId?: number;
+  clientId?: number;
+  type?: InvoiceType;
   status?: string;
-}
-
-export interface CreateInvoiceRequest {
-  contractId: number;
-  amount: number;
-  dueDate?: string;
-  notes?: string;
-  status?: string;
+  /** Année d'émission (date d'envoi). */
+  year?: number;
 }
 
 @Injectable({
@@ -33,16 +30,32 @@ export class InvoiceService {
     return this.api.get<Invoice>(`invoice/${id}`);
   }
 
-  createInvoice(request: CreateInvoiceRequest): Promise<Invoice> {
+  /** Génère la facture brouillon d'un contrat à partir de ses lignes. */
+  createFromContract(contractId: number): Promise<Invoice> {
+    return this.api.post<Invoice>("invoice", { contractId });
+  }
+
+  /** Facture de service : travaux hors contrat, lignes saisies à la main. */
+  createServiceInvoice(request: { clientId: number; items: ContractItem[]; notes?: string; dueDate?: string }): Promise<Invoice> {
     return this.api.post<Invoice>("invoice", request);
   }
 
-  updateInvoice(id: number, invoice: Partial<Invoice> & { status?: string }): Promise<Invoice> {
-    return this.api.put<Invoice>(`invoice/${id}`, invoice);
+  /** `items` : facture de service en brouillon seulement. */
+  updateInvoice(id: number, changes: { dueDate?: string | null; notes?: string | null; items?: ContractItem[] }): Promise<Invoice> {
+    return this.api.put<Invoice>(`invoice/${id}`, changes);
+  }
+
+  markSent(id: number, dueDate?: string): Promise<Invoice> {
+    return this.api.post<Invoice>(`invoice/${id}/send`, { dueDate });
   }
 
   markPaid(id: number): Promise<Invoice> {
     return this.api.post<Invoice>(`invoice/${id}/mark-paid`, {});
+  }
+
+  /** Annule une facture envoyée et en crée une nouvelle à partir du contrat actuel. */
+  replaceInvoice(id: number): Promise<Invoice> {
+    return this.api.post<Invoice>(`invoice/${id}/replace`, {});
   }
 
   cancelInvoice(id: number): Promise<Invoice> {

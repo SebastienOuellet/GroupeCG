@@ -71,10 +71,6 @@
           <input type="date" name="EndDate" [(ngModel)]="form.EndDate" required />
         </label>
         <label class="form-field">
-          <span>Prix ($)</span>
-          <input type="number" step="0.01" name="Price" [(ngModel)]="form.Price" required />
-        </label>
-        <label class="form-field">
           <span>Statut</span>
           <select name="Status" [(ngModel)]="form.Status">
             <option value="draft">Brouillon</option>
@@ -82,8 +78,15 @@
           </select>
         </label>
       </div>
+      <h3 class="form-subtitle">Éléments du contrat</h3>
+      <app-contract-items-editor [(items)]="items" [suggestions]="itemSuggestions()" />
+      <label class="form-field form-field--wide">
+        <span>Consignes de déneigement <small>(visibles par l'opérateur)</small></span>
+        <textarea name="Notes" rows="3" [(ngModel)]="form.Notes" placeholder="Ex. Pousser la neige à l'arrière. Attention au Tempo."></textarea>
+      </label>
+      <p class="form-hint">Le montant à payer (taxes incluses) est établi automatiquement avec le contrat.</p>
       <div class="form-actions">
-        <button type="submit" class="btn-primary" [disabled]="saving()">Créer</button>
+        <button type="submit" class="btn-primary" [disabled]="saving()">Créer le contrat</button>
         <button type="button" class="btn-outline" (click)="showForm.set(false)">Annuler</button>
       </div>
     </form>
@@ -144,7 +147,7 @@
           <th>Client</th>
           <th>Adresse</th>
           <th>Route</th>
-          <th>Prix</th>
+          <th class="num">Montant (taxes incl.)</th>
           <th>Statut</th>
         </tr>
       </thead>
@@ -156,7 +159,7 @@
             <td data-label="Client">{{ clientLabel(contract) }}</td>
             <td data-label="Adresse">{{ addressLabel(contract) }}</td>
             <td data-label="Route">{{ contract.Route?.Name || "—" }}</td>
-            <td data-label="Prix">{{ contract.Price }} $</td>
+            <td data-label="Montant (taxes incl.)" class="num">{{ formatMoney(contractTotal(contract)) }}</td>
             <td data-label="Statut"><span class="badge badge--{{ contract.Status }}">{{ contract.Status }}</span></td>
           </tr>
         }

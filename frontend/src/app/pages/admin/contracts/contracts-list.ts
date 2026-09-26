@@ -5,7 +5,9 @@ import { ContractService } from "../../../core/services/contract.service";
 import { ClientService } from "../../../core/services/client.service";
 import { RouteService } from "../../../core/services/route.service";
 import { ServiceAddressService } from "../../../core/services/service-address.service";
-import { Client, Contract, RouteModel, ServiceAddress } from "../../../core/models/domain.model";
+import { Client, Contract, ContractItem, RouteModel, ServiceAddress } from "../../../core/models/domain.model";
+import { contractAmount, formatMoney, withoutBlankItems } from "../../../core/models/billing";
+import { ContractItemsEditor } from "../../../shared/contract-items-editor/contract-items-editor";
 import { ClientQuickCreate, QuickCreateResult } from "../clients/client-quick-create/client-quick-create";
 import { ClientPicker } from "../clients/client-picker/client-picker";
 
@@ -13,7 +15,7 @@ type QuickCreateMode = "client" | "address";
 
 @Component({
   selector: "app-contracts-list",
-  imports: [FormsModule, ClientQuickCreate, ClientPicker],
+  imports: [FormsModule, ClientQuickCreate, ClientPicker, ContractItemsEditor],
   templateUrl: "./contracts-list.html"
 })
 export class ContractsList implements OnInit {
@@ -34,6 +36,9 @@ export class ContractsList implements OnInit {
   readonly saving = signal(false);
   readonly quickCreate = signal<QuickCreateMode | null>(null);
   readonly quickCreatePrefill = signal("");
+  readonly itemSuggestions = signal<string[]>([]);
+  readonly items = signal<ContractItem[]>([]);
+  readonly formatMoney = formatMoney;
 
   filters = { seasonYear: "", status: "", routeId: "" };
   form: Partial<Contract> & { ClientId?: number } = {};
@@ -47,12 +52,14 @@ export class ContractsList implements OnInit {
 
   async loadRefs(): Promise<void> {
     try {
-      const [routes, clients] = await Promise.all([
+      const [routes, clients, suggestions] = await Promise.all([
         this.routeService.getRoutes(),
-        this.clientService.getClients()
+        this.clientService.getClients(),
+        this.contractService.getItemSuggestions()
       ]);
       this.routes.set(routes);
       this.clients.set(clients);
+      this.itemSuggestions.set(suggestions);
     } catch (e) {
       this.error.set((e as Error).message);
     }
@@ -84,6 +91,7 @@ export class ContractsList implements OnInit {
       RouteId: null,
       Status: "active"
     };
+    this.items.set([{ Description: this.itemSuggestions()[0] ?? "Déneigement saisonnier", Quantity: 1, UnitPrice: null }]);
     this.clientAddresses.set([]);
     this.showForm.set(true);
   }
@@ -126,18 +134,21 @@ export class ContractsList implements OnInit {
       this.error.set("Choisissez un client.");
       return;
     }
+    const { Price, ...fields } = this.form;
     this.saving.set(true);
     this.error.set(null);
     try {
-      await this.contractService.createContract({
-        ...this.form,
+      const created = await this.contractService.createContract({
+        ...fields,
         ClientId: Number(this.form.ClientId),
         ServiceAddressId: Number(this.form.ServiceAddressId),
         RouteId: this.form.RouteId ? Number(this.form.RouteId) : null,
-        SeasonStartYear: Number(this.form.SeasonStartYear)
+        SeasonStartYear: Number(this.form.SeasonStartYear),
+        Items: withoutBlankItems(this.items())
       });
       this.showForm.set(false);
-      await this.load();
+      // Direction la fiche : la facture brouillon y est prête à envoyer.
+      this.router.navigate(["/contrats", created.Id]);
     } catch (e) {
       this.error.set((e as Error).message);
     } finally {
@@ -159,6 +170,12 @@ export class ContractsList implements OnInit {
     } catch (e) {
       this.error.set((e as Error).message);
     }
+  }
+
+  /** Montant du paiement en cours (figé) ; à défaut, prix des éléments + taxes. */
+  contractTotal(contract: Contract): number {
+    const payment = [...(contract.Invoices ?? [])].sort((a, b) => b.Id - a.Id)[0];
+    return contractAmount(contract.Price, payment?.Amount);
   }
 
   open(contract: Contract): void {

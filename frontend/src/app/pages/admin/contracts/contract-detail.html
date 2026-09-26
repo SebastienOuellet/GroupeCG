@@ -1,11 +1,14 @@
 @if (contract(); as c) {
   <div class="page-header">
-    <h1>Contrat {{ c.Reference }} <span style="font-weight: 400; font-size: 1rem; color: #7a8591">(# {{ c.ContractNumber }})</span></h1>
+    <h1>Contrat {{ c.Reference }} <span class="page-header__sub">(# {{ c.ContractNumber }})</span></h1>
     <span class="badge badge--{{ c.Status }}">{{ c.Status }}</span>
   </div>
 
   @if (error()) {
     <div class="error-banner">{{ error() }}</div>
+  }
+  @if (info()) {
+    <div class="info-banner">{{ info() }}</div>
   }
 
   <div class="card">
@@ -64,10 +67,6 @@
           <input type="date" name="EndDate" [(ngModel)]="form.EndDate" />
         </label>
         <label class="form-field">
-          <span>Prix ($)</span>
-          <input type="number" step="0.01" name="Price" [(ngModel)]="form.Price" />
-        </label>
-        <label class="form-field">
           <span>Statut</span>
           <select name="Status" [(ngModel)]="form.Status">
             <option value="draft">Brouillon</option>
@@ -76,82 +75,128 @@
             <option value="cancelled">Annulé</option>
           </select>
         </label>
-        <label class="form-field">
-          <span>Notes</span>
-          <input name="Notes" [(ngModel)]="form.Notes" />
-        </label>
       </div>
+      <label class="form-field form-field--wide">
+        <span>Consignes de déneigement <small>(visibles par l'opérateur)</small></span>
+        <textarea name="Notes" rows="3" [(ngModel)]="form.Notes" placeholder="Ex. Pousser la neige à l'arrière. Attention au Tempo."></textarea>
+      </label>
+      <h3 class="form-subtitle">Éléments du contrat</h3>
+      <app-contract-items-editor [(items)]="items" [suggestions]="itemSuggestions()" />
       <button type="submit" class="btn-primary" [disabled]="saving()">Enregistrer</button>
     </form>
   </div>
 
   <div class="card">
     <div class="section-header">
-      <h2>Factures</h2>
-      <button type="button" class="btn-outline" (click)="openInvoiceForm()">+ Nouvelle facture</button>
+      <h2>Paiement</h2>
+      @if (activeInvoice(); as inv) {
+        <span class="badge badge--{{ inv.Status }}">{{ statusLabels[inv.Status] }}</span>
+      }
     </div>
 
-    @if (showInvoiceForm()) {
-      <form (ngSubmit)="saveInvoice()" style="margin-bottom: 1.25rem">
-        <div class="form-grid">
-          <label class="form-field">
-            <span>Montant ($)</span>
-            <input type="number" step="0.01" name="invAmount" [(ngModel)]="invoiceForm.amount" required />
-          </label>
-          <label class="form-field">
-            <span>Échéance</span>
-            <input type="date" name="invDueDate" [(ngModel)]="invoiceForm.dueDate" />
-          </label>
-          <label class="form-field">
-            <span>Notes</span>
-            <input name="invNotes" [(ngModel)]="invoiceForm.notes" />
-          </label>
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn-primary" [disabled]="saving()">Créer</button>
-          <button type="button" class="btn-outline" (click)="showInvoiceForm.set(false)">Annuler</button>
-        </div>
-      </form>
+    @if (activeInvoice(); as inv) {
+      <div class="payment">
+        <dl class="payment__totals">
+          <dt>Sous-total</dt>
+          <dd>{{ formatMoney(inv.Subtotal) }}</dd>
+          <dt>TPS</dt>
+          <dd>{{ formatMoney(inv.TpsAmount) }}</dd>
+          <dt>TVQ</dt>
+          <dd>{{ formatMoney(inv.TvqAmount) }}</dd>
+          <dt class="payment__grand">Montant à payer</dt>
+          <dd class="payment__grand">{{ formatMoney(inv.Amount) }}</dd>
+        </dl>
+
+        @if (amountOutOfSync()) {
+          <div class="warning-banner">
+            Le montant à payer ne correspond plus aux éléments du contrat ({{ formatMoney(c.Price) }} avant taxes).
+            Enregistrez de nouveau le contrat pour le mettre à jour.
+          </div>
+        }
+
+        <dl class="payment__terms">
+          @if (inv.IssuedAt) {
+            <div><dt>Envoyé au client le</dt><dd>{{ inv.IssuedAt }}</dd></div>
+          }
+          @if (inv.DueDate) {
+            <div><dt>Payable au plus tard le</dt><dd>{{ inv.DueDate }}</dd></div>
+          }
+          @if (inv.PaidAt) {
+            <div><dt>Payé le</dt><dd>{{ inv.PaidAt }}</dd></div>
+          }
+          <div class="payment__ref"><dt>N° de référence</dt><dd>{{ inv.InvoiceNumber }}</dd></div>
+        </dl>
+
+        @if (inv.Status === "draft") {
+          <p class="form-hint">Le montant suit les éléments du contrat jusqu'à ce que le contrat soit envoyé au client.</p>
+          <div class="payment__actions">
+            <label class="form-field payment__due">
+              <span>Payable au plus tard le (défaut : 30 jours)</span>
+              <input type="date" name="dueDate" [(ngModel)]="dueDate" />
+            </label>
+            <button type="button" class="btn-primary" (click)="markSent(inv)" [disabled]="saving()">Contrat envoyé au client</button>
+            <button type="button" class="btn-outline" (click)="markPaid(inv)" [disabled]="saving()">Payé comptant</button>
+          </div>
+        } @else if (isIssued(inv)) {
+          <div class="payment__actions">
+            <button type="button" class="btn-primary" (click)="markPaid(inv)" [disabled]="saving()">Marquer payé</button>
+          </div>
+        }
+      </div>
+    } @else if (c.Status === "active") {
+      <p class="empty-state">Aucun montant à payer établi.</p>
+      <button type="button" class="btn-outline" (click)="generateInvoice()" [disabled]="saving()">Établir le montant à payer</button>
+    } @else {
+      <p class="empty-state">Le montant à payer sera établi à l'activation du contrat.</p>
     }
 
-    @if (invoices().length === 0) {
-      <p class="empty-state">Aucune facture pour ce contrat.</p>
-    } @else {
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Numéro</th>
-            <th>Montant</th>
-            <th>Échéance</th>
-            <th>Statut</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (invoice of invoices(); track invoice.Id) {
+    @if (cancelledInvoices().length > 0) {
+      <details class="payment__history">
+        <summary>Montants annulés ({{ cancelledInvoices().length }})</summary>
+        <table class="data-table">
+          <thead>
             <tr>
-              <td data-label="Numéro"><strong>{{ invoice.InvoiceNumber }}</strong></td>
-              <td data-label="Montant">{{ invoice.Amount }} $</td>
-              <td data-label="Échéance">{{ invoice.DueDate || "—" }}</td>
-              <td data-label="Statut">
-                <span
-                  class="badge"
-                  [class.badge--active]="invoice.Status === 'paid'"
-                  [class.badge--draft]="invoice.Status === 'draft' || invoice.Status === 'sent'"
-                  [class.badge--cancelled]="invoice.Status === 'overdue' || invoice.Status === 'cancelled'"
-                >{{ invoice.Status }}</span>
-              </td>
-              <td class="cell-actions">
-                @if (invoice.Status !== "paid" && invoice.Status !== "cancelled") {
-                  <button type="button" class="btn-outline" (click)="markInvoicePaid(invoice)">Marquer payée</button>
-                }
-              </td>
+              <th>N° de référence</th>
+              <th class="num">Montant</th>
+              <th>Annulé le</th>
             </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (old of cancelledInvoices(); track old.Id) {
+              <tr>
+                <td data-label="N°"><s>{{ old.InvoiceNumber }}</s></td>
+                <td data-label="Montant" class="num">{{ formatMoney(old.Amount) }}</td>
+                <td data-label="Annulé le">{{ old.CancelledAt || "—" }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </details>
     }
   </div>
+
+  <dialog #questionDialog class="question-dialog" (close)="question.set(null)" aria-labelledby="question-title">
+    @if (question(); as q) {
+      <h2 id="question-title">Mettre à jour le montant à payer ?</h2>
+      @if (q.mode === "update") {
+        <p>Les éléments du contrat ont changé. Le contrat n'a pas encore été envoyé au client.</p>
+        <p>Nouveau montant : <strong>{{ formatMoney(q.newTotal) }}</strong> (actuel : {{ formatMoney(q.invoice.Amount) }})</p>
+        <div class="question-dialog__actions">
+          <button type="button" class="btn-primary" (click)="answer('update')">Mettre à jour le montant</button>
+          <button type="button" class="btn-outline" (click)="answer('none')">Enregistrer sans changer le montant</button>
+          <button type="button" class="btn-link" (click)="answer(null)">Retour</button>
+        </div>
+      } @else {
+        <p>Ce contrat a déjà été envoyé au client avec un montant de <strong>{{ formatMoney(q.invoice.Amount) }}</strong> : ce montant ne peut plus être modifié.</p>
+        <p>Émettre un montant corrigé de <strong>{{ formatMoney(q.newTotal) }}</strong> ? L'ancien (N° {{ q.invoice.InvoiceNumber }}) sera annulé et conservé dans l'historique. Il faudra renvoyer le contrat au client.</p>
+        <div class="question-dialog__actions">
+          <button type="button" class="btn-primary" (click)="answer('replace')">Émettre le montant corrigé</button>
+          <button type="button" class="btn-outline" (click)="answer('none')">Garder le montant envoyé</button>
+          <button type="button" class="btn-link" (click)="answer(null)">Retour</button>
+        </div>
+      }
+    }
+  </dialog>
 } @else if (error()) {
   <div class="error-banner">{{ error() }}</div>
 } @else {

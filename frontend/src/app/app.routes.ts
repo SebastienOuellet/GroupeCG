@@ -81,6 +81,14 @@ export const routes: Routes = [
         loadComponent: () => import("./pages/admin/invoices/invoices-list").then((m) => m.InvoicesList)
       },
       {
+        path: "factures/nouvelle",
+        loadComponent: () => import("./pages/admin/invoices/service-invoice-new").then((m) => m.ServiceInvoiceNew)
+      },
+      {
+        path: "factures/:id",
+        loadComponent: () => import("./pages/admin/invoices/invoice-detail").then((m) => m.InvoiceDetail)
+      },
+      {
         path: "parametres",
         loadComponent: () => import("./pages/admin/settings/users-settings").then((m) => m.UsersSettings)
       }

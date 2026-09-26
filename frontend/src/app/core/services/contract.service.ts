@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { ApiService } from "../api.service";
-import { Contract, RolloverResult } from "../models/domain.model";
+import { Contract, ContractUpdate, RolloverResult } from "../models/domain.model";
 
 export interface ContractFilters {
   seasonYear?: number;
@@ -27,11 +27,16 @@ export class ContractService {
     return this.api.get<Contract>(`contract/${id}`);
   }
 
-  createContract(contract: Partial<Contract>): Promise<Contract> {
+  createContract(contract: ContractUpdate): Promise<Contract> {
     return this.api.post<Contract>("contract", contract);
   }
 
-  updateContract(id: number, contract: Partial<Contract>): Promise<Contract> {
+  /** Descriptions de lignes déjà utilisées (autocomplétion). */
+  getItemSuggestions(): Promise<string[]> {
+    return this.api.get<string[]>("contract/item-suggestions");
+  }
+
+  updateContract(id: number, contract: ContractUpdate): Promise<Contract> {
     return this.api.put<Contract>(`contract/${id}`, contract);
   }
 

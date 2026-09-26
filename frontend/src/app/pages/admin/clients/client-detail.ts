@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from "@angular/core";
+import { Component, computed, inject, OnInit, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { ClientService } from "../../../core/services/client.service";
@@ -9,6 +9,10 @@ import { GoogleMapsService, LatLng } from "../../../core/services/google-maps.se
 import { AddressFields } from "../../../shared/address-fields/address-fields";
 import { StreetView } from "../../../shared/street-view/street-view";
 import { SurfaceBadge } from "../../../shared/surface-badge/surface-badge";
+import { InvoiceService } from "../../../core/services/invoice.service";
+import { CONTRACT_PAYMENT_LABELS, Invoice, INVOICE_STATUS_LABELS } from "../../../core/models/invoice.model";
+import { contractAmount, formatMoney } from "../../../core/models/billing";
+import { Contract } from "../../../core/models/domain.model";
 
 /** Contrats qui utilisent encore l'adresse (miroir du backend) : bloquent la désactivation. */
 const BLOCKING_CONTRACT_STATUSES: ContractStatus[] = ["draft", "active"];
@@ -26,6 +30,7 @@ export class ClientDetail implements OnInit {
   private readonly clientService = inject(ClientService);
   private readonly addressService = inject(ServiceAddressService);
   private readonly tenantService = inject(TenantService);
+  private readonly invoiceService = inject(InvoiceService);
 
   readonly client = signal<Client | null>(null);
   readonly tenantsByAddress = signal<Record<number, Tenant[]>>({});
@@ -38,12 +43,30 @@ export class ClientDetail implements OnInit {
   readonly editingAddressId = signal<number | null>(null);
   readonly mapsEnabled = inject(GoogleMapsService).isEnabled;
 
+  readonly invoices = signal<Invoice[]>([]);
+  /** Le contrat fait office de facture : ici on ne liste que les factures de service. */
+  readonly serviceInvoices = computed(() => this.invoices().filter((invoice) => invoice.Type === "service"));
+  readonly invoiceStatusLabels = INVOICE_STATUS_LABELS;
+  readonly paymentLabels = CONTRACT_PAYMENT_LABELS;
+  readonly formatMoney = formatMoney;
+
   clientForm: Partial<Client> = {};
   addressForm: Partial<ServiceAddress> = {};
   editForm: Partial<ServiceAddress> = {};
   tenantForm: Partial<Tenant> = {};
 
   private clientId!: number;
+
+  /** Paiement en cours du contrat (le plus récent non annulé). */
+  contractPayment(contract: Contract): Invoice | null {
+    return this.invoices()
+      .filter((invoice) => invoice.Type === "contract" && invoice.ContractId === contract.Id && invoice.Status !== "cancelled")
+      .sort((a, b) => b.Id - a.Id)[0] ?? null;
+  }
+
+  contractTotal(contract: Contract): number {
+    return contractAmount(contract.Price, this.contractPayment(contract)?.Amount);
+  }
 
   async ngOnInit(): Promise<void> {
     this.clientId = Number(this.route.snapshot.paramMap.get("id"));
@@ -62,6 +85,7 @@ export class ClientDetail implements OnInit {
         tenantsMap[address.Id] = await this.tenantService.getTenants(address.Id);
       }
       this.tenantsByAddress.set(tenantsMap);
+      this.invoices.set(await this.invoiceService.getInvoices({ clientId: this.clientId }));
     } catch (e) {
       this.error.set((e as Error).message);
     }

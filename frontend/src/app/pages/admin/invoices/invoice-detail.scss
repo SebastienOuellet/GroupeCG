@@ -1,0 +1,46 @@
+.invoice-totals {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: end;
+  gap: 0.25rem 1.5rem;
+  margin: 0.75rem 0 1rem;
+  font-size: 0.875rem;
+
+  dt {
+    color: #7a8591;
+  }
+
+  dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__grand {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-primary) !important;
+  }
+}
+
+.invoice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+
+  &__due {
+    min-width: 200px;
+  }
+}
+
+@media (max-width: 720px) {
+  .invoice-totals {
+    justify-content: stretch;
+    font-size: 0.9375rem;
+  }
+
+  .invoice-actions > * {
+    flex: 1 1 100%;
+  }
+}

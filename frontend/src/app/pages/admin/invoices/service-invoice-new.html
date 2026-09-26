@@ -1,0 +1,36 @@
+<div class="page-header">
+  <h1>Nouvelle facture de service</h1>
+</div>
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+
+<div class="card">
+  <p class="form-hint">Pour des travaux hors contrat (toiture, déglaçage, passage supplémentaire...). La facture est créée en brouillon : vous pourrez la modifier jusqu'à son envoi.</p>
+  <form (ngSubmit)="save()">
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="invoice-client">Client</label>
+        <app-client-picker inputId="invoice-client" [clients]="clients()" [(value)]="clientId" />
+      </div>
+      <label class="form-field">
+        <span>Échéance (défaut : 30 jours après l'envoi)</span>
+        <input type="date" name="dueDate" [(ngModel)]="dueDate" />
+      </label>
+    </div>
+
+    <h3 class="form-subtitle">Services</h3>
+    <app-contract-items-editor [(items)]="items" [suggestions]="itemSuggestions()" />
+
+    <label class="form-field form-field--wide">
+      <span>Notes</span>
+      <textarea name="notes" rows="2" [(ngModel)]="notes"></textarea>
+    </label>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary" [disabled]="saving()">Créer la facture</button>
+      <a class="btn-outline" routerLink="/factures">Annuler</a>
+    </div>
+  </form>
+</div>

@@ -39,6 +39,9 @@
                   <small class="stop-card__notes">{{ notes }}</small>
                 }
               </div>
+              @if (stop.Contract?.Notes; as instructions) {
+                <p class="stop-card__instructions">⚠ {{ instructions }}</p>
+              }
               <div class="stop-card__actions">
                 @if (stop.Status === "pending") {
                   <button type="button" class="btn-outline" (click)="setStopStatus(stop, 'skipped')">Passer</button>

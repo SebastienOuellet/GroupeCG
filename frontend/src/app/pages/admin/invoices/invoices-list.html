@@ -1,59 +1,77 @@
 <div class="page-header">
   <h1>Factures</h1>
-  <button type="button" class="btn-primary" (click)="openForm()">+ Nouvelle facture</button>
+  <div class="page-header__actions">
+    <button type="button" class="btn-outline" (click)="exportCsv()" [disabled]="invoices().length === 0">Exporter (CSV)</button>
+    <a class="btn-primary" routerLink="/factures/nouvelle">+ Facture de service</a>
+  </div>
 </div>
 
 @if (error()) {
   <div class="error-banner">{{ error() }}</div>
 }
 
-@if (showForm()) {
-  <div class="card">
-    <h2>Nouvelle facture</h2>
-    <form (ngSubmit)="save()">
-      <div class="form-grid">
-        <label class="form-field">
-          <span>Contrat</span>
-          <select name="contractId" [(ngModel)]="form.contractId" required>
-            <option [ngValue]="undefined">Choisir...</option>
-            @for (contract of contracts(); track contract.Id) {
-              <option [ngValue]="contract.Id">{{ contractLabel(contract) }}</option>
-            }
-          </select>
-        </label>
-        <label class="form-field">
-          <span>Montant ($)</span>
-          <input type="number" step="0.01" name="amount" [(ngModel)]="form.amount" required />
-        </label>
-        <label class="form-field">
-          <span>Échéance</span>
-          <input type="date" name="dueDate" [(ngModel)]="form.dueDate" />
-        </label>
-        <label class="form-field">
-          <span>Notes</span>
-          <input name="notes" [(ngModel)]="form.notes" />
-        </label>
-      </div>
-      <div class="form-actions">
-        <button type="submit" class="btn-primary" [disabled]="saving()">Créer</button>
-        <button type="button" class="btn-outline" (click)="showForm.set(false)">Annuler</button>
-      </div>
-    </form>
-  </div>
-}
-
 <div class="card">
-  <label class="form-field filter-bar filter-bar--single">
-    <span>Statut</span>
-    <select name="status" [(ngModel)]="filters.status" (ngModelChange)="load()">
-      <option value="">Tous</option>
-      <option value="draft">Brouillon</option>
-      <option value="sent">Envoyée</option>
-      <option value="paid">Payée</option>
-      <option value="overdue">En retard</option>
-      <option value="cancelled">Annulée</option>
-    </select>
-  </label>
+  <form class="filter-bar">
+    <label class="form-field">
+      <span>Année (date d'envoi)</span>
+      <select name="year" [(ngModel)]="filters.year" (ngModelChange)="load()">
+        <option value="">Toutes, incluant brouillons</option>
+        @for (year of years; track year) {
+          <option [value]="year">{{ year }}</option>
+        }
+      </select>
+    </label>
+    <label class="form-field">
+      <span>Type</span>
+      <select name="type" [(ngModel)]="filters.type" (ngModelChange)="load()">
+        <option value="">Tous</option>
+        <option value="contract">Contrats</option>
+        <option value="service">Services</option>
+      </select>
+    </label>
+    <label class="form-field">
+      <span>Statut</span>
+      <select name="status" [(ngModel)]="filters.status" (ngModelChange)="load()">
+        <option value="">Tous</option>
+        <option value="draft">Brouillon</option>
+        <option value="sent">Envoyée</option>
+        <option value="overdue">En retard</option>
+        <option value="paid">Payée</option>
+        <option value="cancelled">Annulée</option>
+      </select>
+    </label>
+  </form>
+
+  @if (!loading()) {
+    <div class="stat-tiles">
+      <div class="stat-tile">
+        <div class="stat-tile__label">Facturé avant taxes</div>
+        <div class="stat-tile__value">{{ formatMoney(summary().subtotal) }}</div>
+        <div class="stat-tile__sub">{{ summary().count }} facture(s) émise(s)</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile__label">TPS perçue</div>
+        <div class="stat-tile__value">{{ formatMoney(summary().tps) }}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile__label">TVQ perçue</div>
+        <div class="stat-tile__value">{{ formatMoney(summary().tvq) }}</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile__label">Encaissé</div>
+        <div class="stat-tile__value">{{ formatMoney(summary().paid) }}</div>
+        <div class="stat-tile__sub">{{ summary().paidCount }} payée(s)</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile__label">À recevoir</div>
+        <div class="stat-tile__value">{{ formatMoney(summary().receivable) }}</div>
+        <div class="stat-tile__sub">{{ summary().receivableCount }} envoyée(s) non payée(s)</div>
+      </div>
+    </div>
+    @if (filters.year) {
+      <p class="form-hint">Les brouillons n'ont pas encore de date d'envoi : choisissez « Toutes » pour les voir. Les factures annulées sont exclues des totaux.</p>
+    }
+  }
 
   @if (loading()) {
     <p class="empty-state">Chargement...</p>
@@ -65,8 +83,9 @@
         <tr>
           <th>Numéro</th>
           <th>Client</th>
-          <th>Contrat</th>
-          <th>Montant</th>
+          <th>Type</th>
+          <th class="num">Total</th>
+          <th>Envoyée</th>
           <th>Échéance</th>
           <th>Statut</th>
           <th></th>
@@ -74,24 +93,23 @@
       </thead>
       <tbody>
         @for (invoice of invoices(); track invoice.Id) {
-          <tr>
-            <td data-label="Numéro"><strong>{{ invoice.InvoiceNumber }}</strong></td>
-            <td data-label="Client">{{ clientLabel(invoice) }}</td>
-            <td data-label="Contrat">{{ invoice.Contract?.Reference || "—" }}</td>
-            <td data-label="Montant">{{ invoice.Amount }} $</td>
-            <td data-label="Échéance">{{ invoice.DueDate || "—" }}</td>
-            <td data-label="Statut">
-              <span
-                class="badge"
-                [class.badge--active]="invoice.Status === 'paid'"
-                [class.badge--draft]="invoice.Status === 'draft' || invoice.Status === 'sent'"
-                [class.badge--cancelled]="invoice.Status === 'overdue' || invoice.Status === 'cancelled'"
-              >{{ invoice.Status }}</span>
+          <tr class="clickable" (click)="open(invoice)">
+            <td data-label="Numéro">
+              @if (invoice.Status === "cancelled") {
+                <s>{{ invoice.InvoiceNumber }}</s>
+              } @else {
+                <strong>{{ invoice.InvoiceNumber }}</strong>
+              }
             </td>
+            <td data-label="Client">{{ clientLabel(invoice) }}</td>
+            <td data-label="Type">{{ typeLabels[invoice.Type] }}{{ invoice.Contract ? " " + invoice.Contract.Reference : "" }}</td>
+            <td data-label="Total" class="num">{{ formatMoney(invoice.Amount) }}</td>
+            <td data-label="Envoyée">{{ invoice.IssuedAt || "—" }}</td>
+            <td data-label="Échéance">{{ invoice.DueDate || "—" }}</td>
+            <td data-label="Statut"><span class="badge badge--{{ invoice.Status }}">{{ statusLabels[invoice.Status] }}</span></td>
             <td class="cell-actions">
-              @if (invoice.Status !== "paid" && invoice.Status !== "cancelled") {
-                <button type="button" class="btn-outline" (click)="markPaid(invoice)">Marquer payée</button>
-                <button type="button" class="btn-danger" (click)="cancel(invoice)">Annuler</button>
+              @if (isIssued(invoice)) {
+                <button type="button" class="btn-outline" (click)="$event.stopPropagation(); markPaid(invoice)">Marquer payée</button>
               }
             </td>
           </tr>

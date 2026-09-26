@@ -67,6 +67,15 @@ button {
   }
 }
 
+/* Lien stylé en bouton */
+a.btn-primary,
+a.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .btn-danger {
   background: transparent;
   color: #c0392b;
@@ -253,6 +262,10 @@ button {
   &--completed { background: #e7ecf7; color: var(--color-primary); }
   &--cancelled { background: #fbe9e7; color: #c0392b; }
   &--inactive { background: #fbe9e7; color: #c0392b; }
+  /* Factures */
+  &--sent { background: #e7ecf7; color: var(--color-primary); }
+  &--paid { background: #e3f4e8; color: #1e7a3c; }
+  &--overdue { background: #fff1e0; color: #a35200; }
   &--role-admin { background: #e7ecf7; color: var(--color-primary); }
   &--role-operator { background: #e3f4e8; color: #1e7a3c; }
   &--role-user { background: #fff8e6; color: #7a5c00; }
@@ -377,6 +390,98 @@ button {
 
   &--single {
     max-width: 220px;
+  }
+}
+
+.form-subtitle {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--color-secondary);
+}
+
+.form-hint {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  color: #7a8591;
+}
+
+.warning-banner {
+  background: #fff6e5;
+  border: 1px solid #f0d49b;
+  color: #7a4d00;
+  border-radius: 6px;
+  padding: 0.625rem 0.875rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+/* Champ pleine largeur hors .form-grid (ex. zone de texte) */
+.form-field--wide {
+  margin-bottom: 1rem;
+
+  small {
+    font-weight: 400;
+    color: #7a8591;
+  }
+}
+
+:where(textarea) {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.info-banner {
+  background: #e7ecf7;
+  border: 1px solid #c3cfe8;
+  color: var(--color-primary);
+  border-radius: 6px;
+  padding: 0.625rem 0.875rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+/* Montants alignés (.data-table th a text-align: left : on surclasse) */
+.num,
+.data-table th.num,
+.data-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Tuiles de chiffres (bilan des factures) */
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.stat-tile {
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  &__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #7a8591;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  &__value {
+    margin-top: 0.25rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__sub {
+    font-size: 0.75rem;
+    color: #7a8591;
   }
 }
 

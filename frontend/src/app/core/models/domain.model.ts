@@ -46,6 +46,22 @@ export interface RouteModel {
 
 export type ContractStatus = "draft" | "active" | "completed" | "cancelled";
 
+export interface ContractItem {
+  Id?: number;
+  Description: string;
+  /** DECIMAL : chaîne quand elle vient de l'API, nombre quand saisie dans le formulaire. */
+  Quantity: number | string;
+  UnitPrice: number | string | null;
+}
+
+/** Que faire de la facture en cours quand les lignes du contrat changent. */
+export type ContractInvoiceAction = "none" | "update" | "replace";
+
+export interface InvoiceSync {
+  action: "unchanged" | "updated" | "replaced" | "created" | "cancelled";
+  invoiceNumber: string | null;
+}
+
 export interface Contract {
   Id: number;
   Reference: string;
@@ -56,6 +72,7 @@ export interface Contract {
   SeasonStartYear: number;
   StartDate: string;
   EndDate: string;
+  /** Sous-total avant taxes (somme des lignes). */
   Price: string;
   Status: ContractStatus;
   RenewedFromContractId: number | null;
@@ -64,7 +81,17 @@ export interface Contract {
   Client?: Client;
   ServiceAddress?: ServiceAddress;
   Route?: RouteModel | null;
+  Items?: ContractItem[];
+  /** Paiements non annulés (liste des contrats seulement). */
+  Invoices?: { Id: number; Status: string; Amount: string }[];
+  /** Présent dans la réponse d'une modification. */
+  InvoiceSync?: InvoiceSync;
 }
+
+export type ContractUpdate = Partial<Omit<Contract, "Items">> & {
+  Items?: ContractItem[];
+  invoiceAction?: ContractInvoiceAction;
+};
 
 export interface Tenant {
   Id: number;

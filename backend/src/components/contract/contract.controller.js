@@ -50,6 +50,14 @@ const cancelContract = async (req, res, next) => {
   }
 };
 
+const getItemSuggestions = async (req, res, next) => {
+  try {
+    res.status(200).json(await contractService.getItemSuggestions());
+  } catch (error) {
+    next(error);
+  }
+};
+
 const rolloverSeason = async (req, res, next) => {
   try {
     const result = await contractService.rolloverSeason({ fromSeasonYear: req.body.fromSeasonYear });
@@ -62,6 +70,7 @@ const rolloverSeason = async (req, res, next) => {
 export const contractController = {
   routes: [
     { method: "GET", url: "", middleware: [adminOnly, getContracts], authRequired: true },
+    { method: "GET", url: "/item-suggestions", middleware: [adminOnly, getItemSuggestions], authRequired: true },
     { method: "GET", url: "/:id", middleware: [adminOnly, getContractById], authRequired: true },
     { method: "POST", url: "", middleware: [adminOnly, createContract], authRequired: true },
     { method: "POST", url: "/rollover", middleware: [adminOnly, rolloverSeason], authRequired: true },

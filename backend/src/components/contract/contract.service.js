@@ -2,9 +2,37 @@ import db from "../../../models/index.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../errors/Errors.js";
 import { CONTRACT_STATUS } from "./contract.constants.js";
 import { logger } from "../../config/logger.js";
+import * as invoiceService from "../invoice/invoice.service.js";
+import { CONTRACT_INVOICE_ACTION, CONTRACT_INVOICE_ACTIONS, INVOICE_ISSUED_STATUSES, INVOICE_STATUS, INVOICE_TYPE } from "../invoice/invoice.constants.js";
+import { computeTotals, normalizeLineItems } from "../invoice/invoice.money.js";
 
-const { Contract, Client, ServiceAddress, Route, sequelize, Sequelize } = db;
+const { Contract, ContractItem, Client, ServiceAddress, Route, Invoice, sequelize, Sequelize } = db;
 const { Op } = Sequelize;
+
+const DEFAULT_ITEM_DESCRIPTION = "Déneigement saisonnier";
+const MAX_ITEM_SUGGESTIONS = 50;
+
+/** Rétrocompatibilité API : sans `Items` mais avec `Price`, une ligne unique « Déneigement saisonnier ». */
+const normalizeItems = (items, fallbackPrice) => {
+  if (items === undefined && fallbackPrice !== undefined && fallbackPrice !== null && fallbackPrice !== "") {
+    items = [{ Description: DEFAULT_ITEM_DESCRIPTION, Quantity: 1, UnitPrice: fallbackPrice }];
+  }
+  return normalizeLineItems(items, "Le contrat doit contenir au moins une ligne.");
+};
+
+const itemsDiffer = (current, next) =>
+  current.length !== next.length ||
+  current.some((item, i) =>
+    item.Description !== next[i].Description ||
+    Number(item.Quantity) !== Number(next[i].Quantity) ||
+    Number(item.UnitPrice) !== Number(next[i].UnitPrice)
+  );
+
+const replaceItems = async (contract, items, transaction) => {
+  await ContractItem.destroy({ where: { ContractId: contract.Id }, transaction });
+  await ContractItem.bulkCreate(items.map((item) => ({ ...item, ContractId: contract.Id })), { transaction });
+  contract.Price = computeTotals(items).subtotal;
+};
 
 /**
  * Construit la référence FolloSOFT `YY-XXXX` : 2 derniers chiffres de l'année
@@ -31,6 +59,8 @@ const defaultInclude = [
   { model: Route, as: "Route" }
 ];
 
+const itemsInclude = { model: ContractItem, as: "Items", separate: true, order: [["SortOrder", "ASC"], ["Id", "ASC"]] };
+
 export const getContracts = async ({ seasonYear, status, routeId, clientId } = {}) => {
   const where = {};
   if (seasonYear) where.SeasonStartYear = Number(seasonYear);
@@ -40,13 +70,23 @@ export const getContracts = async ({ seasonYear, status, routeId, clientId } = {
 
   return Contract.findAll({
     where,
-    include: defaultInclude,
+    // Paiements (non annulés) : la liste affiche le même montant figé que la fiche
+    include: [
+      ...defaultInclude,
+      {
+        model: Invoice,
+        as: "Invoices",
+        attributes: ["Id", "Status", "Amount"],
+        where: { Type: INVOICE_TYPE.CONTRACT, Status: { [Op.ne]: INVOICE_STATUS.CANCELLED } },
+        required: false
+      }
+    ],
     order: [["Reference", "ASC"]]
   });
 };
 
-export const getContractById = async (id) => {
-  const contract = await Contract.findByPk(id, { include: defaultInclude });
+export const getContractById = async (id, transaction) => {
+  const contract = await Contract.findByPk(id, { include: [...defaultInclude, itemsInclude], transaction });
   if (!contract) {
     throw new NotFoundError("Contrat introuvable.");
   }
@@ -58,6 +98,7 @@ export const createContract = async (contractInfo) => {
   if (!ClientId || !ServiceAddressId || !SeasonStartYear) {
     throw new BadRequestError("ClientId, ServiceAddressId et SeasonStartYear sont requis.");
   }
+  const items = normalizeItems(contractInfo.Items, contractInfo.Price);
 
   return sequelize.transaction(async (transaction) => {
     const client = await Client.findByPk(ClientId, { transaction });
@@ -81,42 +122,126 @@ export const createContract = async (contractInfo) => {
     const reference = await buildReference(SeasonStartYear, client.ClientNumber, transaction);
     const contractNumber = await nextContractNumber(transaction);
 
+    const { Id, Items, RenewalNoticeSentAt, ...fields } = contractInfo;
     const contract = await Contract.create(
       {
-        ...contractInfo,
+        ...fields,
         Reference: reference,
-        ContractNumber: contractNumber
+        ContractNumber: contractNumber,
+        Price: computeTotals(items).subtotal
       },
       { transaction }
     );
+    await ContractItem.bulkCreate(items.map((item) => ({ ...item, ContractId: contract.Id })), { transaction });
+
+    // La facture (brouillon) naît avec le contrat : elle est prête à envoyer.
+    if (contract.Status !== CONTRACT_STATUS.CANCELLED) {
+      await invoiceService.createInvoiceFromContract(contract.Id, { transaction });
+    }
 
     logger.info(`Nouveau contrat créé | ${contract.Reference} (#${contract.ContractNumber}) - client #${client.ClientNumber}`);
-    return contract;
+    return getContractById(contract.Id, transaction);
   });
 };
 
+/**
+ * Modifie un contrat et, au besoin, sa facture en cours.
+ *
+ * `invoiceAction` (choix de l'utilisateur quand les lignes changent) :
+ *  - "update"  : facture brouillon → réalignée sur les nouvelles lignes
+ *  - "replace" : facture envoyée   → annulée + nouvelle facture brouillon
+ *  - "none"    : facture laissée telle quelle (défaut)
+ * Une facture payée n'est jamais touchée.
+ *
+ * Règles automatiques : contrat activé sans facture → facture générée ;
+ * contrat annulé → facture brouillon annulée (une facture envoyée reste, à régler à la main).
+ *
+ * Retourne le contrat + `InvoiceSync` { action, invoiceNumber } pour informer l'interface.
+ */
 export const updateContract = async (id, contractInfo) => {
-  const contract = await Contract.findByPk(id);
-  if (!contract) {
-    throw new NotFoundError("Contrat introuvable.");
+  const invoiceAction = contractInfo.invoiceAction ?? CONTRACT_INVOICE_ACTION.NONE;
+  if (!CONTRACT_INVOICE_ACTIONS.includes(invoiceAction)) {
+    throw new BadRequestError(`invoiceAction invalide : ${invoiceAction}.`);
   }
 
-  // Référence, numéro et rattachements structurants sont immuables
-  const { Id, Reference, ContractNumber, ClientId, SeasonStartYear, ...updatable } = contractInfo;
-  Object.assign(contract, updatable);
-  await contract.save();
-  return contract;
+  return sequelize.transaction(async (transaction) => {
+    const contract = await Contract.findByPk(id, { transaction });
+    if (!contract) {
+      throw new NotFoundError("Contrat introuvable.");
+    }
+
+    // Référence, numéro et rattachements structurants sont immuables ; Price est dérivé des lignes
+    const { Id, Reference, ContractNumber, ClientId, SeasonStartYear, Price, Items, invoiceAction: _action, ...updatable } = contractInfo;
+    const previousStatus = contract.Status;
+    Object.assign(contract, updatable);
+
+    let itemsChanged = false;
+    if (Items !== undefined) {
+      const items = normalizeItems(Items);
+      const current = await ContractItem.findAll({ where: { ContractId: contract.Id }, order: [["SortOrder", "ASC"], ["Id", "ASC"]], transaction });
+      itemsChanged = itemsDiffer(current, items);
+      if (itemsChanged) await replaceItems(contract, items, transaction);
+    }
+    await contract.save({ transaction });
+
+    let invoice = await invoiceService.getActiveInvoiceForContract(contract.Id, transaction);
+    let action = "unchanged";
+
+    if (contract.Status === CONTRACT_STATUS.CANCELLED && previousStatus !== CONTRACT_STATUS.CANCELLED) {
+      if (invoice?.Status === INVOICE_STATUS.DRAFT) {
+        await invoiceService.cancelInvoice(invoice.Id, { transaction });
+        action = "cancelled";
+      }
+    } else if (!invoice && contract.Status === CONTRACT_STATUS.ACTIVE) {
+      invoice = await invoiceService.createInvoiceFromContract(contract.Id, { transaction });
+      action = "created";
+    } else if (invoice && itemsChanged) {
+      if (invoiceAction === CONTRACT_INVOICE_ACTION.UPDATE) {
+        await invoiceService.refreshDraftFromContract(invoice, transaction);
+        action = "updated";
+      } else if (invoiceAction === CONTRACT_INVOICE_ACTION.REPLACE) {
+        if (!INVOICE_ISSUED_STATUSES.includes(invoice.Status)) {
+          throw new ConflictError(`La facture ${invoice.InvoiceNumber} ne peut pas être remplacée (statut : ${invoice.Status}).`);
+        }
+        invoice = await invoiceService.replaceInvoice(invoice.Id, { transaction });
+        action = "replaced";
+      }
+    }
+
+    const result = (await getContractById(contract.Id, transaction)).toJSON();
+    result.InvoiceSync = { action, invoiceNumber: invoice?.InvoiceNumber ?? null };
+    return result;
+  });
+};
+
+/** Descriptions déjà utilisées, les plus fréquentes d'abord (autocomplétion des lignes). */
+export const getItemSuggestions = async () => {
+  const rows = await ContractItem.findAll({
+    attributes: ["Description", [sequelize.fn("COUNT", sequelize.col("Id")), "uses"]],
+    group: ["Description"],
+    order: [[sequelize.literal("uses"), "DESC"], ["Description", "ASC"]],
+    limit: MAX_ITEM_SUGGESTIONS,
+    raw: true
+  });
+  return rows.map((row) => row.Description);
 };
 
 export const cancelContract = async (id) => {
-  const contract = await Contract.findByPk(id);
-  if (!contract) {
-    throw new NotFoundError("Contrat introuvable.");
-  }
-  contract.Status = CONTRACT_STATUS.CANCELLED;
-  await contract.save();
-  logger.info(`Contrat annulé | ${contract.Reference}`);
-  return contract;
+  return sequelize.transaction(async (transaction) => {
+    const contract = await Contract.findByPk(id, { transaction });
+    if (!contract) {
+      throw new NotFoundError("Contrat introuvable.");
+    }
+    contract.Status = CONTRACT_STATUS.CANCELLED;
+    await contract.save({ transaction });
+
+    const invoice = await invoiceService.getActiveInvoiceForContract(contract.Id, transaction);
+    if (invoice?.Status === INVOICE_STATUS.DRAFT) {
+      await invoiceService.cancelInvoice(invoice.Id, { transaction });
+    }
+    logger.info(`Contrat annulé | ${contract.Reference}`);
+    return contract;
+  });
 };
 
 /**
@@ -134,7 +259,7 @@ export const rolloverSeason = async ({ fromSeasonYear }) => {
   return sequelize.transaction(async (transaction) => {
     const activeContracts = await Contract.findAll({
       where: { SeasonStartYear: sourceYear, Status: CONTRACT_STATUS.ACTIVE },
-      include: [{ model: Client, as: "Client" }],
+      include: [{ model: Client, as: "Client" }, itemsInclude],
       order: [["Reference", "ASC"]],
       transaction
     });
@@ -169,6 +294,11 @@ export const rolloverSeason = async ({ fromSeasonYear }) => {
           Status: CONTRACT_STATUS.DRAFT,
           RenewedFromContractId: source.Id
         },
+        { transaction }
+      );
+      // Lignes reportées telles quelles ; la facture viendra à l'activation du contrat.
+      await ContractItem.bulkCreate(
+        source.Items.map(({ Description, Quantity, UnitPrice, SortOrder }) => ({ ContractId: newContract.Id, Description, Quantity, UnitPrice, SortOrder })),
         { transaction }
       );
       created.push(newContract);

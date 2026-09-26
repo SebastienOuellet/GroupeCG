@@ -1,0 +1,128 @@
+@if (invoice(); as inv) {
+  <div class="page-header">
+    <h1>Facture {{ inv.InvoiceNumber }}</h1>
+    <span class="badge badge--{{ inv.Status }}">{{ statusLabels[inv.Status] }}</span>
+  </div>
+
+  @if (error()) {
+    <div class="error-banner">{{ error() }}</div>
+  }
+  @if (info()) {
+    <div class="info-banner">{{ info() }}</div>
+  }
+
+  <div class="card">
+    <table class="data-table data-table--kv">
+      <tbody>
+        <tr>
+          <th>Type</th>
+          <td>{{ typeLabels[inv.Type] }}</td>
+        </tr>
+        <tr>
+          <th>Client</th>
+          <td>
+            @if (inv.Client) {
+              <a [routerLink]="['/clients', inv.Client.Id]">{{ clientLabel(inv) }}</a>
+            } @else { — }
+          </td>
+        </tr>
+        @if (inv.Contract; as contract) {
+          <tr>
+            <th>Contrat</th>
+            <td><a [routerLink]="['/contrats', contract.Id]">{{ contract.Reference }}</a></td>
+          </tr>
+        }
+        @if (inv.ReplacesInvoice; as replaced) {
+          <tr>
+            <th>Remplace</th>
+            <td><a [routerLink]="['/factures', replaced.Id]">{{ replaced.InvoiceNumber }}</a></td>
+          </tr>
+        }
+        @if (inv.IssuedAt) {
+          <tr><th>Envoyée le</th><td>{{ inv.IssuedAt }}</td></tr>
+        }
+        @if (inv.DueDate && inv.Status !== "draft") {
+          <tr><th>Échéance</th><td>{{ inv.DueDate }}</td></tr>
+        }
+        @if (inv.PaidAt) {
+          <tr><th>Payée le</th><td>{{ inv.PaidAt }}</td></tr>
+        }
+        @if (inv.CancelledAt) {
+          <tr><th>Annulée le</th><td>{{ inv.CancelledAt }}</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>{{ inv.Type === "service" ? "Services" : "Éléments du contrat" }}</h2>
+
+    @if (editableLines()) {
+      <app-contract-items-editor [(items)]="items" [suggestions]="itemSuggestions()" />
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th class="num">Qté</th>
+            <th class="num">Prix unitaire</th>
+            <th class="num">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (line of inv.Lines ?? []; track line.Id) {
+            <tr>
+              <td data-label="Description">{{ line.Description }}</td>
+              <td data-label="Qté" class="num">{{ +line.Quantity }}</td>
+              <td data-label="Prix unitaire" class="num">{{ formatMoney(line.UnitPrice) }}</td>
+              <td data-label="Total" class="num">{{ formatMoney(line.LineTotal) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <dl class="invoice-totals">
+        <dt>Sous-total</dt>
+        <dd>{{ formatMoney(inv.Subtotal) }}</dd>
+        <dt>TPS</dt>
+        <dd>{{ formatMoney(inv.TpsAmount) }}</dd>
+        <dt>TVQ</dt>
+        <dd>{{ formatMoney(inv.TvqAmount) }}</dd>
+        <dt class="invoice-totals__grand">Total</dt>
+        <dd class="invoice-totals__grand">{{ formatMoney(inv.Amount) }}</dd>
+      </dl>
+      @if (inv.Type === "contract" && inv.Status !== "cancelled" && inv.Status !== "paid") {
+        <p class="form-hint">Le montant d'un contrat se corrige en modifiant le contrat.</p>
+      }
+    }
+
+    <label class="form-field form-field--wide">
+      <span>Notes</span>
+      <textarea name="notes" rows="2" [(ngModel)]="notes"></textarea>
+    </label>
+
+    @if (inv.Status === "draft") {
+      <div class="invoice-actions">
+        <label class="form-field invoice-actions__due">
+          <span>Échéance (défaut : 30 jours)</span>
+          <input type="date" name="dueDate" [(ngModel)]="dueDate" />
+        </label>
+        <button type="button" class="btn-outline" (click)="saveDraft()" [disabled]="saving()">Enregistrer</button>
+        <button type="button" class="btn-primary" (click)="markSent()" [disabled]="saving()">Marquer envoyée</button>
+        <button type="button" class="btn-outline" (click)="markPaid(inv)" [disabled]="saving()">Payée comptant</button>
+        <button type="button" class="btn-danger" (click)="cancel(inv)" [disabled]="saving()">Annuler la facture</button>
+      </div>
+    } @else {
+      <div class="invoice-actions">
+        <button type="button" class="btn-outline" (click)="saveNotes()" [disabled]="saving()">Enregistrer les notes</button>
+        @if (isIssued(inv)) {
+          <button type="button" class="btn-primary" (click)="markPaid(inv)" [disabled]="saving()">Marquer payée</button>
+          <button type="button" class="btn-danger" (click)="cancel(inv)" [disabled]="saving()">Annuler la facture</button>
+        }
+      </div>
+    }
+  </div>
+} @else if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+} @else {
+  <p class="empty-state">Chargement...</p>
+}
