@@ -18,24 +18,32 @@
     <h2>Nouveau contrat</h2>
     <form (ngSubmit)="save()">
       <div class="form-grid">
-        <label class="form-field">
-          <span>Client</span>
-          <select name="ClientId" [(ngModel)]="form.ClientId" (ngModelChange)="onClientChange()" required>
+        <div class="form-field">
+          <div class="form-field__label-row">
+            <label for="contract-client">Client</label>
+            <button type="button" class="btn-link" (click)="openQuickCreate('client')" title="Créer un nouveau client">+ Nouveau</button>
+          </div>
+          <select id="contract-client" name="ClientId" [(ngModel)]="form.ClientId" (ngModelChange)="onClientChange()" required>
             <option [ngValue]="undefined">Choisir...</option>
             @for (client of clients(); track client.Id) {
               <option [ngValue]="client.Id">{{ clientDisplay(client) }}</option>
             }
           </select>
-        </label>
-        <label class="form-field">
-          <span>Adresse de service</span>
-          <select name="ServiceAddressId" [(ngModel)]="form.ServiceAddressId" required [disabled]="clientAddresses().length === 0">
-            <option [ngValue]="undefined">Choisir...</option>
+        </div>
+        <div class="form-field">
+          <div class="form-field__label-row">
+            <label for="contract-address">Adresse de service</label>
+            @if (form.ClientId) {
+              <button type="button" class="btn-link" (click)="openQuickCreate('address')" title="Ajouter une adresse à ce client">+ Nouvelle</button>
+            }
+          </div>
+          <select id="contract-address" name="ServiceAddressId" [(ngModel)]="form.ServiceAddressId" required [disabled]="clientAddresses().length === 0">
+            <option [ngValue]="undefined">{{ form.ClientId && clientAddresses().length === 0 ? "Aucune adresse — en ajouter une" : "Choisir..." }}</option>
             @for (address of clientAddresses(); track address.Id) {
               <option [ngValue]="address.Id">{{ address.CivicNumber }} {{ address.Street }}, {{ address.City }}</option>
             }
           </select>
-        </label>
+        </div>
         <label class="form-field">
           <span>Route</span>
           <select name="RouteId" [(ngModel)]="form.RouteId">
@@ -77,6 +85,14 @@
       <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showForm.set(false)">Annuler</button>
     </form>
   </div>
+}
+
+@if (quickCreate(); as mode) {
+  <app-client-quick-create
+    [client]="mode === 'address' ? selectedClient() : null"
+    (created)="onQuickCreated($event)"
+    (closed)="quickCreate.set(null)"
+  />
 }
 
 <div class="card">

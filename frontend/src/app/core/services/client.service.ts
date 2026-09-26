@@ -1,6 +1,9 @@
 import { inject, Injectable } from "@angular/core";
 import { ApiService } from "../api.service";
-import { Client } from "../models/domain.model";
+import { Client, ServiceAddress } from "../models/domain.model";
+
+/** Payload de création : l'adresse optionnelle est créée dans la même transaction. */
+export type CreateClientPayload = Partial<Client> & { ServiceAddress?: Partial<ServiceAddress> };
 
 @Injectable({
   providedIn: "root"
@@ -17,7 +20,7 @@ export class ClientService {
     return this.api.get<Client>(`client/${id}`);
   }
 
-  createClient(client: Partial<Client>): Promise<Client> {
+  createClient(client: CreateClientPayload): Promise<Client> {
     return this.api.post<Client>("client", client);
   }
 

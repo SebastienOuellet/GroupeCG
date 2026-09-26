@@ -6,10 +6,13 @@ import { ClientService } from "../../../core/services/client.service";
 import { RouteService } from "../../../core/services/route.service";
 import { ServiceAddressService } from "../../../core/services/service-address.service";
 import { Client, Contract, RouteModel, ServiceAddress } from "../../../core/models/domain.model";
+import { ClientQuickCreate, QuickCreateResult } from "../clients/client-quick-create/client-quick-create";
+
+type QuickCreateMode = "client" | "address";
 
 @Component({
   selector: "app-contracts-list",
-  imports: [FormsModule],
+  imports: [FormsModule, ClientQuickCreate],
   templateUrl: "./contracts-list.html"
 })
 export class ContractsList implements OnInit {
@@ -28,6 +31,7 @@ export class ContractsList implements OnInit {
   readonly info = signal<string | null>(null);
   readonly showForm = signal(false);
   readonly saving = signal(false);
+  readonly quickCreate = signal<QuickCreateMode | null>(null);
 
   filters = { seasonYear: "", status: "", routeId: "" };
   form: Partial<Contract> & { ClientId?: number } = {};
@@ -75,6 +79,7 @@ export class ContractsList implements OnInit {
       SeasonStartYear: this.currentYear,
       StartDate: `${this.currentYear}-11-01`,
       EndDate: `${this.currentYear + 1}-04-30`,
+      RouteId: null,
       Status: "active"
     };
     this.clientAddresses.set([]);
@@ -88,6 +93,28 @@ export class ContractsList implements OnInit {
       return;
     }
     this.clientAddresses.set(await this.addressService.getAddresses(Number(this.form.ClientId)));
+  }
+
+  selectedClient(): Client | null {
+    return this.clients().find((client) => client.Id === Number(this.form.ClientId)) ?? null;
+  }
+
+  openQuickCreate(mode: QuickCreateMode): void {
+    if (mode === "address" && !this.selectedClient()) return;
+    this.quickCreate.set(mode);
+  }
+
+  /** Sélectionne automatiquement le client et/ou l'adresse fraîchement créés. */
+  onQuickCreated({ client, address }: QuickCreateResult): void {
+    if (!this.clients().some((existing) => existing.Id === client.Id)) {
+      this.clients.update((list) => [...list, client].sort((a, b) => a.ClientNumber - b.ClientNumber));
+      this.form.ClientId = client.Id;
+      this.clientAddresses.set([address]);
+    } else {
+      this.clientAddresses.update((list) => [...list, address]);
+    }
+    this.form.ServiceAddressId = address.Id;
+    this.quickCreate.set(null);
   }
 
   async save(): Promise<void> {

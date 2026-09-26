@@ -1,0 +1,73 @@
+<dialog #dialog class="quick-dialog" (cancel)="onCancelEvent($event)" (close)="onClose()" aria-labelledby="quick-create-title">
+  <form (ngSubmit)="save()">
+    <header class="quick-dialog__header">
+      <h2 id="quick-create-title">{{ isAddressOnly ? "Nouvelle adresse de service" : "Nouveau client" }}</h2>
+      <button type="button" class="quick-dialog__close" aria-label="Fermer" (click)="cancel()">×</button>
+    </header>
+
+    <div class="quick-dialog__body">
+      @if (error()) {
+        <div class="error-banner">{{ error() }}</div>
+      }
+
+      @if (isAddressOnly) {
+        <p class="quick-dialog__context">Client : <strong>{{ clientName(client()!) }}</strong></p>
+      } @else {
+        <h3>Client</h3>
+        <div class="form-grid">
+          <label class="form-field">
+            <span>Prénom</span>
+            <input name="FirstName" [(ngModel)]="clientForm.FirstName" autofocus />
+          </label>
+          <label class="form-field">
+            <span>Nom</span>
+            <input name="LastName" [(ngModel)]="clientForm.LastName" />
+          </label>
+          <label class="form-field">
+            <span>Entreprise</span>
+            <input name="CompanyName" [(ngModel)]="clientForm.CompanyName" />
+          </label>
+          <label class="form-field">
+            <span>Courriel</span>
+            <input type="email" name="Email" [(ngModel)]="clientForm.Email" />
+          </label>
+          <label class="form-field">
+            <span>Téléphone</span>
+            <input type="tel" name="Phone" [(ngModel)]="clientForm.Phone" placeholder="+18195551234" />
+          </label>
+        </div>
+        <h3>Adresse de service</h3>
+      }
+
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Numéro civique</span>
+          <input name="CivicNumber" [(ngModel)]="addressForm.CivicNumber" required [attr.autofocus]="isAddressOnly || null" />
+        </label>
+        <label class="form-field">
+          <span>Rue</span>
+          <input name="Street" [(ngModel)]="addressForm.Street" required />
+        </label>
+        <label class="form-field">
+          <span>Ville</span>
+          <input name="City" [(ngModel)]="addressForm.City" required />
+        </label>
+        <label class="form-field">
+          <span>Code postal</span>
+          <input name="PostalCode" [(ngModel)]="addressForm.PostalCode" required maxlength="7" placeholder="J1H 1A1" />
+        </label>
+        <label class="form-field">
+          <span>Notes (accès, bornes...)</span>
+          <input name="AddressNotes" [(ngModel)]="addressForm.Notes" />
+        </label>
+      </div>
+    </div>
+
+    <footer class="quick-dialog__footer">
+      <button type="button" class="btn-outline" (click)="cancel()" [disabled]="saving()">Annuler</button>
+      <button type="submit" class="btn-primary" [disabled]="saving()">
+        {{ saving() ? "Création..." : isAddressOnly ? "Créer l'adresse" : "Créer le client" }}
+      </button>
+    </footer>
+  </form>
+</dialog>

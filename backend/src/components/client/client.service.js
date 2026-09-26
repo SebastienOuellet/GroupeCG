@@ -36,7 +36,14 @@ export const getClientById = async (id) => {
   return client;
 };
 
-export const createClient = async (clientInfo) => {
+/**
+ * Crée un client. Si `ServiceAddress` est fourni dans le payload, la première adresse de
+ * service est créée dans la même transaction : la création rapide depuis le formulaire de
+ * contrat ne laisse jamais de client orphelin si l'adresse est invalide.
+ */
+export const createClient = async (payload) => {
+  const { ServiceAddress: addressInfo, ...clientInfo } = payload;
+
   return sequelize.transaction(async (transaction) => {
     const maxNumber = await Client.max("ClientNumber", { transaction });
     const clientNumber = Math.max(maxNumber || 0, CLIENT_NUMBER_SEED) + 1;
@@ -45,6 +52,15 @@ export const createClient = async (clientInfo) => {
       { ...clientInfo, ClientNumber: clientNumber },
       { transaction }
     );
+
+    if (addressInfo) {
+      const { Id, ClientId, ...addressFields } = addressInfo;
+      const address = await ServiceAddress.create(
+        { ...addressFields, ClientId: client.Id },
+        { transaction }
+      );
+      client.setDataValue("ServiceAddresses", [address]);
+    }
 
     logger.info(`Nouveau client créé | #${client.ClientNumber} - ${client.FirstName || ""} ${client.LastName || ""}`);
     return client;
