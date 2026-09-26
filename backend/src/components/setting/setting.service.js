@@ -3,6 +3,8 @@ import { BadRequestError } from "../../errors/Errors.js";
 import { logger } from "../../config/logger.js";
 import { SETTING_KEYS } from "./setting.constants.js";
 import { CONTRACT_TERMS_RULES, DEFAULT_CONTRACT_TERMS } from "../../documents/contractTerms.js";
+import { buildContractPdf } from "../../documents/contractPdf.js";
+import { computeTotals } from "../invoice/invoice.money.js";
 
 const { Setting } = db;
 
@@ -62,4 +64,54 @@ export const updateContractTerms = async (input, userId = null) => {
   await row.save();
   logger.info(`Conditions du contrat modifiées | par utilisateur #${userId ?? "?"} | ${JSON.stringify(values)}`);
   return getContractTerms();
+};
+
+/** Saison « courante » pour l'exemple : à partir de juillet, on prépare la saison qui commence cet automne. */
+const sampleSeasonYear = (date) => (date.getMonth() >= 6 ? date.getFullYear() : date.getFullYear() - 1);
+
+const toDateOnly = (date) => date.toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+
+/**
+ * Contrat d'exemple (client fictif, filigrane « EXEMPLE ») avec les valeurs
+ * reçues, enregistrées ou non : l'admin voit le rendu avant de sauvegarder.
+ * Rien n'est écrit en base.
+ */
+export const buildContractTermsPreview = async (input) => {
+  const terms = validateContractTerms(input);
+  const now = new Date();
+  const year = sampleSeasonYear(now);
+  const due = new Date(now);
+  due.setDate(due.getDate() + 30);
+
+  const totals = computeTotals([
+    { Description: "Entrée double", Quantity: 1, UnitPrice: 400 },
+    { Description: "Trottoir", Quantity: 1, UnitPrice: 60 }
+  ]);
+  const contract = {
+    Reference: `${String(year).slice(-2)}-1000`,
+    ContractNumber: 1000,
+    SeasonStartYear: year,
+    StartDate: `${year}-11-01`,
+    EndDate: `${year + 1}-04-30`,
+    Notes: "Pousser la neige à l'arrière.\nAttention au Tempo.",
+    Client: { ClientNumber: 1000, FirstName: "Jean", LastName: "Exemple", Phone: "+18195550000", Email: "jean.exemple@exemple.ca" },
+    ServiceAddress: { CivicNumber: "123", Street: "rue Exemple", City: "Sherbrooke", PostalCode: "J1H0A0" }
+  };
+  const invoice = {
+    InvoiceNumber: `FAC-${now.getFullYear()}-EXEMPLE`,
+    Lines: totals.lines,
+    Subtotal: totals.subtotal,
+    TpsAmount: totals.tps,
+    TvqAmount: totals.tvq,
+    Amount: totals.total
+  };
+
+  return buildContractPdf({
+    contract,
+    invoice,
+    terms,
+    issueDate: toDateOnly(now),
+    dueDate: toDateOnly(due),
+    watermark: "EXEMPLE"
+  });
 };

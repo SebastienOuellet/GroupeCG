@@ -1,15 +1,16 @@
-import { Component, inject, OnInit, signal } from "@angular/core";
+import { Component, inject, OnInit, signal, viewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { SettingService } from "../../../core/services/setting.service";
 import { ContractTerms } from "../../../core/models/setting.model";
 import { SettingsTabs } from "./settings-tabs/settings-tabs";
+import { PdfDialog } from "../../../shared/pdf-dialog/pdf-dialog";
 
 const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 
 /** Valeurs saisonnières imprimées dans les conditions du contrat PDF. */
 @Component({
   selector: "app-contract-settings",
-  imports: [FormsModule, SettingsTabs],
+  imports: [FormsModule, SettingsTabs, PdfDialog],
   templateUrl: "./contract-settings.html"
 })
 export class ContractSettings implements OnInit {
@@ -20,6 +21,9 @@ export class ContractSettings implements OnInit {
   readonly saving = signal(false);
   readonly loaded = signal(false);
   readonly updatedAt = signal<string | null>(null);
+  /** Aperçu d'un contrat fictif avec les valeurs du formulaire (null = en chargement). */
+  readonly previewPdf = signal<Blob | null>(null);
+  private readonly previewDialog = viewChild<PdfDialog>("previewDialog");
 
   readonly months = MONTHS.map((label, index) => ({ value: index + 1, label }));
   readonly days = Array.from({ length: 31 }, (_, index) => index + 1);
@@ -41,6 +45,29 @@ export class ContractSettings implements OnInit {
 
   deadlineLabel(): string {
     return `${this.form.signatureDeadlineDay === 1 ? "1er" : this.form.signatureDeadlineDay} ${MONTHS[this.form.signatureDeadlineMonth - 1] ?? ""}`;
+  }
+
+  /** Valeurs du formulaire telles quelles, même non enregistrées : on voit avant de sauvegarder. */
+  async preview(): Promise<void> {
+    this.error.set(null);
+    this.previewPdf.set(null);
+    this.previewDialog()?.open();
+    try {
+      this.previewPdf.set(await this.settingService.previewContractTerms(this.form));
+    } catch (e) {
+      this.previewDialog()?.close();
+      this.error.set((e as Error).message);
+    }
+  }
+
+  downloadPreview(): void {
+    const pdf = this.previewPdf();
+    if (!pdf) return;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(pdf);
+    link.download = "Contrat-exemple.pdf";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   }
 
   restoreDefaults(): void {

@@ -8,7 +8,7 @@ import { Contract, ContractInvoiceAction, ContractItem, RouteModel } from "../..
 import { CONTRACT_PAYMENT_LABELS, Invoice, ISSUED_STATUSES } from "../../../core/models/invoice.model";
 import { computeTotals, formatMoney, withoutBlankItems } from "../../../core/models/billing";
 import { ContractItemsEditor } from "../../../shared/contract-items-editor/contract-items-editor";
-import { PdfPreview } from "../../../shared/pdf-preview/pdf-preview";
+import { PdfDialog } from "../../../shared/pdf-dialog/pdf-dialog";
 
 /**
  * Question posée quand les éléments changent et qu'un montant à payer existe déjà.
@@ -29,7 +29,7 @@ const toItemDraft = (item: ContractItem): ContractItem => ({
 
 @Component({
   selector: "app-contract-detail",
-  imports: [FormsModule, RouterLink, ContractItemsEditor, PdfPreview],
+  imports: [FormsModule, RouterLink, ContractItemsEditor, PdfDialog],
   templateUrl: "./contract-detail.html",
   styleUrl: "./contract-detail.scss"
 })
@@ -40,7 +40,7 @@ export class ContractDetail implements OnInit {
   private readonly invoiceService = inject(InvoiceService);
 
   private readonly questionDialog = viewChild<ElementRef<HTMLDialogElement>>("questionDialog");
-  private readonly sendDialog = viewChild<ElementRef<HTMLDialogElement>>("sendDialog");
+  private readonly sendDialog = viewChild<PdfDialog>("sendDialog");
 
   /** Aperçu du contrat PDF dans le dialogue d'envoi (null = en chargement). */
   readonly previewPdf = signal<Blob | null>(null);
@@ -208,7 +208,7 @@ export class ContractDetail implements OnInit {
     this.error.set(null);
     this.previewPdf.set(null);
     this.sendDialogOpen.set(true);
-    this.sendDialog()?.nativeElement.showModal();
+    this.sendDialog()?.open();
     try {
       this.previewPdf.set(await this.contractService.getDocument(this.contractId, this.dueDate || undefined));
     } catch (e) {
@@ -218,8 +218,7 @@ export class ContractDetail implements OnInit {
   }
 
   closeSendDialog(): void {
-    this.sendDialog()?.nativeElement.close();
-    this.sendDialogOpen.set(false);
+    this.sendDialog()?.close();
   }
 
   async sendByEmail(): Promise<void> {

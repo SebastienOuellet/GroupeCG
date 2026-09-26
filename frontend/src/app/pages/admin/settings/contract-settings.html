@@ -101,9 +101,17 @@
 
     <div class="form-actions">
       <button type="submit" class="btn-primary" [disabled]="saving()">Enregistrer</button>
+      <button type="button" class="btn-outline" (click)="preview()">Aperçu d'un contrat</button>
       <button type="button" class="btn-outline" (click)="restoreDefaults()">Rétablir les valeurs par défaut</button>
     </div>
   </form>
+
+  <app-pdf-dialog #previewDialog heading="Aperçu d'un contrat" [pdf]="previewPdf()">
+    <p pdfDialogSubtitle class="form-hint" style="margin: 0">Client fictif, avec les valeurs du formulaire (même non enregistrées).</p>
+    <ng-container ngProjectAs="[pdfDialogActions]">
+      <button type="button" class="btn-outline" (click)="downloadPreview()" [disabled]="!previewPdf()">Télécharger (PDF)</button>
+    </ng-container>
+  </app-pdf-dialog>
 } @else if (!error()) {
   <p class="empty-state">Chargement...</p>
 }

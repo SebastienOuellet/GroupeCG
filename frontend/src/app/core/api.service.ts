@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from "@angular/common/http";
 import { inject, Injectable } from "@angular/core";
-import { catchError, firstValueFrom, throwError } from "rxjs";
+import { catchError, firstValueFrom, Observable, throwError } from "rxjs";
 import { environment } from "../../environments/environment";
 
 export interface RequestOptions {
@@ -38,9 +38,18 @@ export class ApiService {
   }
 
   /** Fichier binaire (ex. PDF). En erreur, le corps JSON arrive lui aussi en Blob : on le décode. */
-  async getBlob(url: string, options?: RequestOptions): Promise<Blob> {
+  getBlob(url: string, options?: RequestOptions): Promise<Blob> {
+    return this.blobRequest(this.http.get(`${environment.apiUrl}/${url}`, { ...options, responseType: "blob" }));
+  }
+
+  /** POST qui renvoie un fichier binaire (ex. aperçu PDF calculé à partir du corps). */
+  postBlob(url: string, body: unknown, options?: RequestOptions): Promise<Blob> {
+    return this.blobRequest(this.http.post(`${environment.apiUrl}/${url}`, body, { ...options, responseType: "blob" }));
+  }
+
+  private async blobRequest(request: Observable<Blob>): Promise<Blob> {
     try {
-      return await firstValueFrom(this.http.get(`${environment.apiUrl}/${url}`, { ...options, responseType: "blob" }));
+      return await firstValueFrom(request);
     } catch (error) {
       const httpError = error as HttpErrorResponse;
       let message = `Erreur API: ${httpError.status} - ${httpError.message}`;

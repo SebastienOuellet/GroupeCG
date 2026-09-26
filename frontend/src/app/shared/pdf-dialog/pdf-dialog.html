@@ -1,0 +1,18 @@
+<dialog #dialog class="pdf-dialog" (close)="onClose()" aria-labelledby="pdf-dialog-title">
+  <header class="pdf-dialog__header">
+    <div>
+      <h2 id="pdf-dialog-title">{{ heading() }}</h2>
+      <ng-content select="[pdfDialogSubtitle]" />
+    </div>
+    <button type="button" class="pdf-dialog__close" aria-label="Fermer" (click)="close()">×</button>
+  </header>
+  <div class="pdf-dialog__body">
+    @if (isOpen()) {
+      <app-pdf-preview [pdf]="pdf()" />
+    }
+  </div>
+  <footer class="pdf-dialog__footer">
+    <button type="button" class="btn-link" (click)="close()">Fermer</button>
+    <ng-content select="[pdfDialogActions]" />
+  </footer>
+</dialog>

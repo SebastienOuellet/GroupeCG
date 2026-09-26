@@ -42,8 +42,14 @@ const clientName = (client) => {
   return client?.CompanyName ? `${client.CompanyName}${person ? ` (${person})` : ""}` : person || `Client #${client?.ClientNumber}`;
 };
 
+/** « J1H0A0 » → « J1H 0A0 » */
+const formatPostalCode = (postalCode) => {
+  const compact = String(postalCode ?? "").replace(/\s+/g, "").toUpperCase();
+  return /^[A-Z]\d[A-Z]\d[A-Z]\d$/.test(compact) ? `${compact.slice(0, 3)} ${compact.slice(3)}` : postalCode;
+};
+
 const addressLine = (address) =>
-  address ? `${address.CivicNumber} ${address.Street}, ${address.City} ${address.PostalCode}` : "—";
+  address ? `${address.CivicNumber} ${address.Street}, ${address.City} ${formatPostalCode(address.PostalCode)}` : "—";
 
 /**
  * Contrat de déneigement en PDF (le contrat fait office de facture).
@@ -54,9 +60,10 @@ const addressLine = (address) =>
  * @param {string} params.dueDate   Date limite de paiement affichée (YYYY-MM-DD)
  * @param {string} params.issueDate Date du document (YYYY-MM-DD)
  * @param {object} [params.terms]   Valeurs des conditions (Paramètres › Contrat)
+ * @param {string} [params.watermark] Texte en filigrane sur chaque page (ex. « EXEMPLE »)
  * @returns {Promise<Buffer>}
  */
-export const buildContractPdf = ({ contract, invoice, dueDate, issueDate, terms: termValues }) =>
+export const buildContractPdf = ({ contract, invoice, dueDate, issueDate, terms: termValues, watermark }) =>
   new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "LETTER",
@@ -279,6 +286,14 @@ export const buildContractPdf = ({ contract, invoice, dueDate, issueDate, terms:
     const range = doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);
+      if (watermark) {
+        doc.save();
+        doc.rotate(-35, { origin: [doc.page.width / 2, doc.page.height / 2] });
+        doc.font("Helvetica-Bold").fontSize(110).fillColor(COLOR_PRIMARY).fillOpacity(0.07)
+          .text(watermark, 0, doc.page.height / 2 - 55, { width: doc.page.width, align: "center", lineBreak: false });
+        doc.restore();
+        doc.fillOpacity(1);
+      }
       // Écrire sous la marge du bas ferait ajouter une page par pdfkit : marge levée le temps du pied.
       const bottomMargin = doc.page.margins.bottom;
       doc.page.margins.bottom = 0;
