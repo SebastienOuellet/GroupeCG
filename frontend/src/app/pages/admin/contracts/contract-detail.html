@@ -116,7 +116,7 @@
 
         <dl class="payment__terms">
           @if (inv.IssuedAt) {
-            <div><dt>Envoyé au client le</dt><dd>{{ inv.IssuedAt }}</dd></div>
+            <div><dt>Envoyé au client le</dt><dd>{{ inv.IssuedAt }}{{ inv.SentToEmail ? " (courriel : " + inv.SentToEmail + ")" : "" }}</dd></div>
           }
           @if (inv.DueDate) {
             <div><dt>Payable au plus tard le</dt><dd>{{ inv.DueDate }}</dd></div>
@@ -134,12 +134,17 @@
               <span>Payable au plus tard le (défaut : 30 jours)</span>
               <input type="date" name="dueDate" [(ngModel)]="dueDate" />
             </label>
-            <button type="button" class="btn-primary" (click)="markSent(inv)" [disabled]="saving()">Contrat envoyé au client</button>
-            <button type="button" class="btn-outline" (click)="markPaid(inv)" [disabled]="saving()">Payé comptant</button>
+            <button type="button" class="btn-primary" (click)="openSendDialog()" [disabled]="saving()">Envoyer le contrat au client</button>
+            <button type="button" class="btn-outline" (click)="download(inv)" [disabled]="saving()">Télécharger (PDF)</button>
+            <button type="button" class="btn-outline" (click)="markSent(inv)" [disabled]="saving()">Marquer comme envoyé</button>
           </div>
-        } @else if (isIssued(inv)) {
+        } @else {
           <div class="payment__actions">
-            <button type="button" class="btn-primary" (click)="markPaid(inv)" [disabled]="saving()">Marquer payé</button>
+            @if (isIssued(inv)) {
+              <button type="button" class="btn-primary" (click)="markPaid(inv)" [disabled]="saving()">Marquer payé</button>
+              <button type="button" class="btn-outline" (click)="openSendDialog()" [disabled]="saving()">Renvoyer au client</button>
+            }
+            <button type="button" class="btn-outline" (click)="download(inv)" [disabled]="saving()">Télécharger (PDF)</button>
           </div>
         }
       </div>
@@ -174,6 +179,37 @@
       </details>
     }
   </div>
+
+  <dialog #sendDialog class="send-dialog" (close)="sendDialogOpen.set(false)" aria-labelledby="send-title">
+    @if (sendDialogOpen()) {
+      <header class="send-dialog__header">
+        <div>
+          <h2 id="send-title">Envoyer le contrat au client</h2>
+          @if (c.Client?.Email) {
+            <p class="send-dialog__to">À : <strong>{{ c.Client!.Email }}</strong></p>
+          } @else {
+            <p class="send-dialog__to send-dialog__to--missing">
+              Ce client n'a pas d'adresse courriel.
+              <a [routerLink]="['/clients', c.ClientId]">L'ajouter sur sa fiche</a>, ou téléchargez le contrat.
+            </p>
+          }
+        </div>
+        <button type="button" class="send-dialog__close" aria-label="Fermer" (click)="closeSendDialog()">×</button>
+      </header>
+      <div class="send-dialog__body">
+        <app-pdf-preview [pdf]="previewPdf()" />
+      </div>
+      <footer class="send-dialog__footer">
+        <button type="button" class="btn-link" (click)="closeSendDialog()">Fermer</button>
+        @if (activeInvoice(); as inv) {
+          <button type="button" class="btn-outline" (click)="download(inv)" [disabled]="!previewPdf()">Télécharger (PDF)</button>
+        }
+        <button type="button" class="btn-primary" (click)="sendByEmail()" [disabled]="saving() || !previewPdf() || !c.Client?.Email">
+          {{ saving() ? "Envoi..." : "Envoyer par courriel" }}
+        </button>
+      </footer>
+    }
+  </dialog>
 
   <dialog #questionDialog class="question-dialog" (close)="question.set(null)" aria-labelledby="question-title">
     @if (question(); as q) {

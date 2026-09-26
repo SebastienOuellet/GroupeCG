@@ -37,6 +37,24 @@ export class ApiService {
     );
   }
 
+  /** Fichier binaire (ex. PDF). En erreur, le corps JSON arrive lui aussi en Blob : on le décode. */
+  async getBlob(url: string, options?: RequestOptions): Promise<Blob> {
+    try {
+      return await firstValueFrom(this.http.get(`${environment.apiUrl}/${url}`, { ...options, responseType: "blob" }));
+    } catch (error) {
+      const httpError = error as HttpErrorResponse;
+      let message = `Erreur API: ${httpError.status} - ${httpError.message}`;
+      if (httpError.error instanceof Blob) {
+        try {
+          message = JSON.parse(await httpError.error.text())?.error?.message || message;
+        } catch {
+          /* corps non JSON : message générique */
+        }
+      }
+      throw new Error(message);
+    }
+  }
+
   private handleError(error: HttpErrorResponse) {
     const message = error.error?.error?.message || `Erreur API: ${error.status} - ${error.message}`;
     return throwError(() => new Error(message));

@@ -2,11 +2,16 @@ import db from "../../../models/index.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../errors/Errors.js";
 import { CONTRACT_STATUS } from "./contract.constants.js";
 import { logger } from "../../config/logger.js";
+import { ConfigService } from "../../config/configService.js";
+import { buildContractPdf } from "../../documents/contractPdf.js";
+import { buildContractEmail } from "../../documents/contractEmail.js";
+import { getEmailProvider } from "../../notifications/providerFactory.js";
 import * as invoiceService from "../invoice/invoice.service.js";
 import { CONTRACT_INVOICE_ACTION, CONTRACT_INVOICE_ACTIONS, INVOICE_ISSUED_STATUSES, INVOICE_STATUS, INVOICE_TYPE } from "../invoice/invoice.constants.js";
 import { computeTotals, normalizeLineItems } from "../invoice/invoice.money.js";
 
-const { Contract, ContractItem, Client, ServiceAddress, Route, Invoice, sequelize, Sequelize } = db;
+const { Contract, ContractItem, Client, ServiceAddress, Route, Invoice, InvoiceLine, sequelize, Sequelize } = db;
+const configService = new ConfigService();
 const { Op } = Sequelize;
 
 const DEFAULT_ITEM_DESCRIPTION = "Déneigement saisonnier";
@@ -312,4 +317,95 @@ export const rolloverSeason = async ({ fromSeasonYear }) => {
 const shiftDateOneYear = (dateOnly) => {
   const [year, month, day] = String(dateOnly).split("-").map(Number);
   return `${year + 1}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+};
+
+/* ------------------------------------------------------------------ */
+/* Document PDF du contrat (le contrat fait office de facture)         */
+/* ------------------------------------------------------------------ */
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+const loadForDocument = async (id) => {
+  const contract = await Contract.findByPk(id, {
+    include: [
+      { model: Client, as: "Client" },
+      { model: ServiceAddress, as: "ServiceAddress" }
+    ]
+  });
+  if (!contract) {
+    throw new NotFoundError("Contrat introuvable.");
+  }
+  const active = await invoiceService.getActiveInvoiceForContract(contract.Id);
+  if (!active) {
+    throw new BadRequestError("Aucun montant à payer n'est établi pour ce contrat.");
+  }
+  const invoice = await Invoice.findByPk(active.Id, {
+    include: [{ model: InvoiceLine, as: "Lines", separate: true, order: [["SortOrder", "ASC"]] }]
+  });
+  return { contract, invoice };
+};
+
+/**
+ * Tant que le paiement est un brouillon, l'aperçu montre l'échéance qui sera
+ * appliquée à l'envoi ; une fois envoyé, il montre les dates figées.
+ */
+const documentDates = (invoice, requestedDueDate) => {
+  if (requestedDueDate && !DATE_ONLY.test(requestedDueDate)) {
+    throw new BadRequestError("dueDate doit être au format AAAA-MM-JJ.");
+  }
+  const isDraft = invoice.Status === INVOICE_STATUS.DRAFT;
+  return {
+    issueDate: invoice.IssuedAt || invoiceService.today(),
+    dueDate: isDraft ? invoiceService.resolveDueDate(invoice, requestedDueDate) : invoice.DueDate
+  };
+};
+
+const documentFilename = (contract, invoice) => `Contrat-${contract.Reference}-${invoice.InvoiceNumber}.pdf`;
+
+export const getContractDocument = async (id, { dueDate } = {}) => {
+  const { contract, invoice } = await loadForDocument(id);
+  const buffer = await buildContractPdf({ contract, invoice, ...documentDates(invoice, dueDate) });
+  return { buffer, filename: documentFilename(contract, invoice) };
+};
+
+/**
+ * Envoie le contrat PDF au client par courriel, puis marque le paiement
+ * « envoyé » (échéance figée). Un contrat déjà envoyé peut être renvoyé
+ * sans changer ses dates. NOTIFICATIONS_DRY_RUN=true : rien ne part, le
+ * courriel est seulement journalisé (`dryRun: true` dans la réponse).
+ */
+export const sendContractToClient = async (id, { dueDate } = {}) => {
+  const { contract, invoice } = await loadForDocument(id);
+  const to = contract.Client?.Email?.trim();
+  if (!to) {
+    throw new BadRequestError("Ce client n'a pas d'adresse courriel. Ajoutez-la sur sa fiche, ou téléchargez le contrat et marquez-le envoyé.");
+  }
+  if (invoice.Status === INVOICE_STATUS.PAID) {
+    throw new ConflictError("Ce contrat est déjà payé.");
+  }
+
+  const dates = documentDates(invoice, dueDate);
+  const pdf = await buildContractPdf({ contract, invoice, ...dates });
+  const email = buildContractEmail({ contract, invoice, dueDate: dates.dueDate });
+
+  // Courriel d'abord : si l'envoi échoue, le contrat reste « à envoyer ».
+  await getEmailProvider().send({
+    to,
+    ...email,
+    attachments: [{ filename: documentFilename(contract, invoice), content: pdf, contentType: "application/pdf" }]
+  });
+
+  if (invoice.Status === INVOICE_STATUS.DRAFT) {
+    await invoiceService.sendInvoice(invoice.Id, { dueDate: dates.dueDate, sentToEmail: to });
+  } else {
+    invoice.SentToEmail = to;
+    await invoice.save();
+  }
+  logger.info(`Contrat envoyé par courriel | ${contract.Reference} → ${to}`);
+
+  return {
+    sentTo: to,
+    dryRun: configService.get("NOTIFICATIONS_DRY_RUN"),
+    invoice: await invoiceService.getInvoiceById(invoice.Id)
+  };
 };

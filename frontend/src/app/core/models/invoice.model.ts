@@ -56,6 +56,8 @@ export interface Invoice {
   DueDate: string | null;
   PaidAt: string | null;
   CancelledAt: string | null;
+  /** Courriel du destinataire si envoyée par l'application. */
+  SentToEmail: string | null;
   ReplacesInvoiceId: number | null;
   Notes: string | null;
   Client?: Client;

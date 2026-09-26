@@ -7,11 +7,14 @@ import { computeTotals, normalizeLineItems } from "./invoice.money.js";
 const { Invoice, InvoiceLine, Contract, ContractItem, Client, sequelize, Sequelize } = db;
 const { Op } = Sequelize;
 
-const today = () => new Date().toISOString().slice(0, 10);
+/** Dates comptables à l'heure du Québec (toISOString() = UTC : le soir, on basculait au lendemain). */
+const BUSINESS_TIMEZONE = "America/Toronto";
+const toBusinessDate = (date) => date.toLocaleDateString("en-CA", { timeZone: BUSINESS_TIMEZONE });
+export const today = () => toBusinessDate(new Date());
 const addDays = (days) => {
   const date = new Date();
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return toBusinessDate(date);
 };
 
 /**
@@ -261,16 +264,20 @@ export const updateInvoice = async (id, { dueDate, notes, items }) => {
   return invoice;
 };
 
-export const sendInvoice = async (id, { dueDate } = {}) => {
+/** Échéance appliquée à l'envoi : celle demandée, sinon celle du brouillon, sinon délai par défaut. */
+export const resolveDueDate = (invoice, dueDate) => dueDate || invoice.DueDate || addDays(DEFAULT_PAYMENT_TERMS_DAYS);
+
+export const sendInvoice = async (id, { dueDate, sentToEmail = null } = {}) => {
   const invoice = await getInvoiceById(id);
   if (invoice.Status !== INVOICE_STATUS.DRAFT) {
     throw new ConflictError(`La facture ${invoice.InvoiceNumber} n'est pas un brouillon.`);
   }
   invoice.Status = INVOICE_STATUS.SENT;
   invoice.IssuedAt = today();
-  invoice.DueDate = dueDate || invoice.DueDate || addDays(DEFAULT_PAYMENT_TERMS_DAYS);
+  invoice.DueDate = resolveDueDate(invoice, dueDate);
+  invoice.SentToEmail = sentToEmail;
   await invoice.save();
-  logger.info(`Facture marquée envoyée | ${invoice.InvoiceNumber}`);
+  logger.info(`Facture marquée envoyée | ${invoice.InvoiceNumber}${sentToEmail ? ` | par courriel à ${sentToEmail}` : ""}`);
   return invoice;
 };
 

@@ -8,6 +8,7 @@ import { Contract, ContractInvoiceAction, ContractItem, RouteModel } from "../..
 import { CONTRACT_PAYMENT_LABELS, Invoice, ISSUED_STATUSES } from "../../../core/models/invoice.model";
 import { computeTotals, formatMoney, withoutBlankItems } from "../../../core/models/billing";
 import { ContractItemsEditor } from "../../../shared/contract-items-editor/contract-items-editor";
+import { PdfPreview } from "../../../shared/pdf-preview/pdf-preview";
 
 /**
  * Question posée quand les éléments changent et qu'un montant à payer existe déjà.
@@ -28,7 +29,7 @@ const toItemDraft = (item: ContractItem): ContractItem => ({
 
 @Component({
   selector: "app-contract-detail",
-  imports: [FormsModule, RouterLink, ContractItemsEditor],
+  imports: [FormsModule, RouterLink, ContractItemsEditor, PdfPreview],
   templateUrl: "./contract-detail.html",
   styleUrl: "./contract-detail.scss"
 })
@@ -39,6 +40,11 @@ export class ContractDetail implements OnInit {
   private readonly invoiceService = inject(InvoiceService);
 
   private readonly questionDialog = viewChild<ElementRef<HTMLDialogElement>>("questionDialog");
+  private readonly sendDialog = viewChild<ElementRef<HTMLDialogElement>>("sendDialog");
+
+  /** Aperçu du contrat PDF dans le dialogue d'envoi (null = en chargement). */
+  readonly previewPdf = signal<Blob | null>(null);
+  readonly sendDialogOpen = signal(false);
 
   readonly contract = signal<Contract | null>(null);
   readonly routes = signal<RouteModel[]>([]);
@@ -188,11 +194,68 @@ export class ContractDetail implements OnInit {
     return this.invoiceAction(() => this.invoiceService.createFromContract(this.contractId), "Montant à payer établi à partir des éléments du contrat.");
   }
 
+  /** Envoyé autrement (remis en main propre, poste...) : aucun courriel ne part. */
   markSent(invoice: Invoice): Promise<void> {
+    if (!confirm("Marquer le contrat comme envoyé au client sans l'envoyer par courriel ? Le montant sera figé.")) return Promise.resolve();
     return this.invoiceAction(
       () => this.invoiceService.markSent(invoice.Id, this.dueDate || undefined),
       "Contrat marqué envoyé au client. Le montant est maintenant figé."
     );
+  }
+
+  /** Ouvre l'aperçu du contrat tel qu'il sera envoyé (vrai PDF). */
+  async openSendDialog(): Promise<void> {
+    this.error.set(null);
+    this.previewPdf.set(null);
+    this.sendDialogOpen.set(true);
+    this.sendDialog()?.nativeElement.showModal();
+    try {
+      this.previewPdf.set(await this.contractService.getDocument(this.contractId, this.dueDate || undefined));
+    } catch (e) {
+      this.closeSendDialog();
+      this.error.set((e as Error).message);
+    }
+  }
+
+  closeSendDialog(): void {
+    this.sendDialog()?.nativeElement.close();
+    this.sendDialogOpen.set(false);
+  }
+
+  async sendByEmail(): Promise<void> {
+    this.saving.set(true);
+    this.error.set(null);
+    this.info.set(null);
+    try {
+      const result = await this.contractService.sendToClient(this.contractId, this.dueDate || undefined);
+      this.closeSendDialog();
+      await this.reloadInvoices();
+      this.info.set(
+        `Contrat envoyé par courriel à ${result.sentTo}.` +
+          (result.dryRun ? " Mode test (NOTIFICATIONS_DRY_RUN) : le courriel a seulement été journalisé, rien n'est parti." : "")
+      );
+    } catch (e) {
+      this.error.set((e as Error).message);
+      this.closeSendDialog();
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async download(invoice: Invoice): Promise<void> {
+    this.error.set(null);
+    try {
+      const pdf = this.previewPdf() && this.sendDialogOpen()
+        ? this.previewPdf()!
+        : await this.contractService.getDocument(this.contractId, this.dueDate || undefined);
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(pdf);
+      link.download = `Contrat-${this.contract()?.Reference}-${invoice.InvoiceNumber}.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
   }
 
   markPaid(invoice: Invoice): Promise<void> {

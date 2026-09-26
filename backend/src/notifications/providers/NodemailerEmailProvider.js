@@ -26,13 +26,14 @@ export class NodemailerEmailProvider extends EmailProvider {
     });
   }
 
-  async send({ to, subject, html, text }) {
+  async send({ to, subject, html, text, attachments }) {
     const info = await this.transporter.sendMail({
       from: this.from,
       to,
       subject,
       html,
-      text
+      text,
+      attachments
     });
     return { providerMessageId: info.messageId };
   }

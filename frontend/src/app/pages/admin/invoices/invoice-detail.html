@@ -108,7 +108,6 @@
         </label>
         <button type="button" class="btn-outline" (click)="saveDraft()" [disabled]="saving()">Enregistrer</button>
         <button type="button" class="btn-primary" (click)="markSent()" [disabled]="saving()">Marquer envoyée</button>
-        <button type="button" class="btn-outline" (click)="markPaid(inv)" [disabled]="saving()">Payée comptant</button>
         <button type="button" class="btn-danger" (click)="cancel(inv)" [disabled]="saving()">Annuler la facture</button>
       </div>
     } @else {

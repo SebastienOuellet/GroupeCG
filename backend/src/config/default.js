@@ -40,5 +40,15 @@ export const defaultConfig = {
   UNSUBSCRIBE_SECRET: process.env.UNSUBSCRIBE_SECRET,
   PORTAL_TOKEN_SECRET: process.env.PORTAL_TOKEN_SECRET,
   RENEWAL_REMINDER_DAYS: Number(process.env.RENEWAL_REMINDER_DAYS) || 45,
-  TWILIO_VALIDATE_SIGNATURE: process.env.TWILIO_VALIDATE_SIGNATURE !== "false"
+  TWILIO_VALIDATE_SIGNATURE: process.env.TWILIO_VALIDATE_SIGNATURE !== "false",
+
+  /* En-tête du contrat PDF. Les numéros TPS/TVQ sont obligatoires sur une facture au Québec. */
+  COMPANY_NAME: process.env.COMPANY_NAME || "Groupe CG",
+  COMPANY_ADDRESS: process.env.COMPANY_ADDRESS || "",
+  COMPANY_PHONE: process.env.COMPANY_PHONE || "",
+  COMPANY_EMAIL: process.env.COMPANY_EMAIL || "",
+  COMPANY_TPS_NUMBER: process.env.COMPANY_TPS_NUMBER || "",
+  COMPANY_TVQ_NUMBER: process.env.COMPANY_TVQ_NUMBER || "",
+  /** Chemin du logo PNG/JPG ; défaut : backend/assets/logo.png. */
+  COMPANY_LOGO_PATH: process.env.COMPANY_LOGO_PATH || path.resolve(__dirname, "../../assets/logo.png")
 };

@@ -58,6 +58,28 @@ const getItemSuggestions = async (req, res, next) => {
   }
 };
 
+/** PDF du contrat. `?download=1` : téléchargement ; sinon affichage (aperçu). */
+const getContractDocument = async (req, res, next) => {
+  try {
+    const { buffer, filename } = await contractService.getContractDocument(req.params.id, { dueDate: req.query.dueDate });
+    const disposition = req.query.download ? "attachment" : "inline";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `${disposition}; filename="${filename}"`);
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).send(buffer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const sendContractToClient = async (req, res, next) => {
+  try {
+    res.status(200).json(await contractService.sendContractToClient(req.params.id, { dueDate: req.body?.dueDate }));
+  } catch (error) {
+    next(error);
+  }
+};
+
 const rolloverSeason = async (req, res, next) => {
   try {
     const result = await contractService.rolloverSeason({ fromSeasonYear: req.body.fromSeasonYear });
@@ -74,6 +96,8 @@ export const contractController = {
     { method: "GET", url: "/:id", middleware: [adminOnly, getContractById], authRequired: true },
     { method: "POST", url: "", middleware: [adminOnly, createContract], authRequired: true },
     { method: "POST", url: "/rollover", middleware: [adminOnly, rolloverSeason], authRequired: true },
+    { method: "GET", url: "/:id/document", middleware: [adminOnly, getContractDocument], authRequired: true },
+    { method: "POST", url: "/:id/send", middleware: [adminOnly, sendContractToClient], authRequired: true },
     { method: "PUT", url: "/:id", middleware: [adminOnly, updateContract], authRequired: true },
     { method: "DELETE", url: "/:id", middleware: [adminOnly, cancelContract], authRequired: true }
   ]

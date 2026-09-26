@@ -1,6 +1,14 @@
 import { inject, Injectable } from "@angular/core";
 import { ApiService } from "../api.service";
+import { Invoice } from "../models/invoice.model";
 import { Contract, ContractUpdate, RolloverResult } from "../models/domain.model";
+
+export interface ContractSendResult {
+  sentTo: string;
+  /** Vrai si NOTIFICATIONS_DRY_RUN : le courriel a seulement été journalisé. */
+  dryRun: boolean;
+  invoice: Invoice;
+}
 
 export interface ContractFilters {
   seasonYear?: number;
@@ -42,6 +50,16 @@ export class ContractService {
 
   cancelContract(id: number): Promise<Contract> {
     return this.api.delete<Contract>(`contract/${id}`);
+  }
+
+  /** PDF du contrat. `dueDate` : échéance à afficher tant que le contrat n'est pas envoyé. */
+  getDocument(id: number, dueDate?: string): Promise<Blob> {
+    return this.api.getBlob(`contract/${id}/document`, { params: dueDate ? { dueDate } : {} });
+  }
+
+  /** Envoie le contrat PDF au client par courriel et le marque envoyé. */
+  sendToClient(id: number, dueDate?: string): Promise<ContractSendResult> {
+    return this.api.post<ContractSendResult>(`contract/${id}/send`, { dueDate });
   }
 
   rolloverSeason(fromSeasonYear: number): Promise<RolloverResult> {

@@ -66,6 +66,10 @@ export default (sequelize) => {
       CancelledAt: {
         type: DataTypes.DATEONLY
       },
+      /** Courriel du destinataire quand envoyée par l'application ; null si marquée envoyée à la main. */
+      SentToEmail: {
+        type: DataTypes.STRING
+      },
       /** Facture annulée que celle-ci remplace (modification après envoi). */
       ReplacesInvoiceId: {
         type: DataTypes.INTEGER
