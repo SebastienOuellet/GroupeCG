@@ -2,16 +2,14 @@ import db from "../../../models/index.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../errors/Errors.js";
 import { CONTRACT_STATUS } from "./contract.constants.js";
 import { logger } from "../../config/logger.js";
-import { ConfigService } from "../../config/configService.js";
 import { buildContractPdf } from "../../documents/contractPdf.js";
 import { buildContractEmail } from "../../documents/contractEmail.js";
-import { getEmailProvider } from "../../notifications/providerFactory.js";
+import { getContractEmailProvider, isContractEmailLive } from "../../notifications/providerFactory.js";
 import * as invoiceService from "../invoice/invoice.service.js";
 import { CONTRACT_INVOICE_ACTION, CONTRACT_INVOICE_ACTIONS, INVOICE_ISSUED_STATUSES, INVOICE_STATUS, INVOICE_TYPE } from "../invoice/invoice.constants.js";
 import { computeTotals, normalizeLineItems } from "../invoice/invoice.money.js";
 
 const { Contract, ContractItem, Client, ServiceAddress, Route, Invoice, InvoiceLine, sequelize, Sequelize } = db;
-const configService = new ConfigService();
 const { Op } = Sequelize;
 
 const DEFAULT_ITEM_DESCRIPTION = "Déneigement saisonnier";
@@ -371,8 +369,10 @@ export const getContractDocument = async (id, { dueDate } = {}) => {
 /**
  * Envoie le contrat PDF au client par courriel, puis marque le paiement
  * « envoyé » (échéance figée). Un contrat déjà envoyé peut être renvoyé
- * sans changer ses dates. NOTIFICATIONS_DRY_RUN=true : rien ne part, le
- * courriel est seulement journalisé (`dryRun: true` dans la réponse).
+ * sans changer ses dates. Indépendant de NOTIFICATIONS_DRY_RUN (réservé aux
+ * notifications aux résidents) : envoi réel dès que SMTP est configuré. Sans
+ * SMTP, ou avec CONTRACT_EMAIL_DRY_RUN=true, le courriel est seulement
+ * journalisé (`dryRun: true` dans la réponse).
  */
 export const sendContractToClient = async (id, { dueDate } = {}) => {
   const { contract, invoice } = await loadForDocument(id);
@@ -389,7 +389,7 @@ export const sendContractToClient = async (id, { dueDate } = {}) => {
   const email = buildContractEmail({ contract, invoice, dueDate: dates.dueDate });
 
   // Courriel d'abord : si l'envoi échoue, le contrat reste « à envoyer ».
-  await getEmailProvider().send({
+  await getContractEmailProvider().send({
     to,
     ...email,
     attachments: [{ filename: documentFilename(contract, invoice), content: pdf, contentType: "application/pdf" }]
@@ -405,7 +405,7 @@ export const sendContractToClient = async (id, { dueDate } = {}) => {
 
   return {
     sentTo: to,
-    dryRun: configService.get("NOTIFICATIONS_DRY_RUN"),
+    dryRun: !isContractEmailLive(),
     invoice: await invoiceService.getInvoiceById(invoice.Id)
   };
 };

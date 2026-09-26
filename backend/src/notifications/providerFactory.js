@@ -47,6 +47,20 @@ export const getTransactionalEmailProvider = () => {
   return transactionalEmailProvider;
 };
 
+/**
+ * Courriels de contrat au client (contrat PDF en pièce jointe) : même fournisseur
+ * que les courriels transactionnels, donc indépendant de NOTIFICATIONS_DRY_RUN
+ * (qui ne concerne que les notifications aux résidents). CONTRACT_EMAIL_DRY_RUN=true
+ * force la journalisation seule, pour tester.
+ */
+const dryRunContractProvider = new DryRunEmailProvider();
+
+export const getContractEmailProvider = () =>
+  configService.get("CONTRACT_EMAIL_DRY_RUN") ? dryRunContractProvider : getTransactionalEmailProvider();
+
+/** Vrai si un courriel de contrat partirait réellement. */
+export const isContractEmailLive = () => !(getContractEmailProvider() instanceof DryRunEmailProvider);
+
 /** Vrai si le fournisseur transactionnel envoie réellement (pas un dry-run). */
 export const isTransactionalEmailLive = () => !(getTransactionalEmailProvider() instanceof DryRunEmailProvider);
 

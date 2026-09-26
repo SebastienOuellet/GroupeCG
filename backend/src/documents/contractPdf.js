@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import PDFDocument from "pdfkit";
 import { ConfigService } from "../config/configService.js";
+import { buildContractTerms, signatureDeadline } from "./contractTerms.js";
 
 const configService = new ConfigService();
 
@@ -11,17 +12,6 @@ const COLOR_LINE = "#d0d5dd";
 const COLOR_FILL = "#f3f5f9";
 
 const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-
-/**
- * Conditions imprimées au bas du contrat. Volontairement factuelles : les
- * conditions commerciales réelles de GroupeCG (précipitations minimales,
- * dommages, résiliation...) sont à compléter ici.
- */
-export const CONTRACT_CONDITIONS = [
-  "Le montant total, taxes incluses, est payable au plus tard à la date indiquée ci-dessus.",
-  "Le service couvre la période indiquée au contrat, pour l'adresse de service indiquée.",
-  "Les consignes particulières ci-dessus font partie du contrat."
-];
 
 /** 1234.5 → « 1 234,50 $ » (espaces normales : les polices PDF standard n'ont pas l'espace fine). */
 export const formatMoney = (value) => {
@@ -91,7 +81,7 @@ export const buildContractPdf = ({ contract, invoice, dueDate, issueDate }) =>
     if (logoPath && fs.existsSync(logoPath)) {
       doc.image(logoPath, left, top, { fit: [70, 70] });
     }
-    const company = [
+    const companyLines = [
       configService.get("COMPANY_ADDRESS"),
       configService.get("COMPANY_PHONE"),
       configService.get("COMPANY_EMAIL")
@@ -104,7 +94,7 @@ export const buildContractPdf = ({ contract, invoice, dueDate, issueDate }) =>
     doc.font("Helvetica-Bold").fontSize(14).fillColor(COLOR_PRIMARY)
       .text(configService.get("COMPANY_NAME"), left, top, { width, align: "right" });
     doc.font("Helvetica").fontSize(9).fillColor(COLOR_MUTED);
-    for (const line of [...company, ...taxNumbers]) {
+    for (const line of [...companyLines, ...taxNumbers]) {
       doc.text(line, { width, align: "right" });
     }
 
@@ -115,7 +105,11 @@ export const buildContractPdf = ({ contract, invoice, dueDate, issueDate }) =>
       .text("CONTRAT DE DÉNEIGEMENT", left + 12, doc.y + 10, { continued: true })
       .font("Helvetica").fontSize(11)
       .text(`   Saison ${contract.SeasonStartYear}-${contract.SeasonStartYear + 1}`);
-    doc.y += 18;
+    doc.y += 14;
+    const city = configService.get("COMPANY_CITY");
+    doc.font("Helvetica").fontSize(9).fillColor(COLOR_MUTED)
+      .text(`Entente intervenue${city ? ` à ${city}` : ""}, le ${formatDate(issueDate)}.`, left, doc.y, { width });
+    doc.y += 10;
 
     /* --- Client | Contrat --- */
     const colWidth = (width - 20) / 2;
@@ -212,23 +206,72 @@ export const buildContractPdf = ({ contract, invoice, dueDate, issueDate }) =>
       doc.moveDown(1);
     }
 
-    /* --- Conditions --- */
-    section("Conditions");
-    doc.font("Helvetica").fontSize(9).fillColor(COLOR_TEXT);
-    CONTRACT_CONDITIONS.forEach((condition, index) => {
-      doc.text(`${index + 1}. ${condition}`, left, doc.y, { width });
-      doc.moveDown(0.2);
-    });
+    /* --- Conditions (contrat papier 2025-2026, voir contractTerms.js) --- */
+    const company = configService.get("COMPANY_LEGAL_NAME");
+    const representative = configService.get("COMPANY_REPRESENTATIVE");
+    const terms = buildContractTerms({ company, amount: formatMoney(invoice.Amount), dueDate: formatDate(dueDate) });
+    const bottomLimit = () => doc.page.height - doc.page.margins.bottom;
+    const ensureSpace = (height) => {
+      if (doc.y + height > bottomLimit()) doc.addPage();
+    };
+    const numbered = (items) => {
+      doc.font("Helvetica").fontSize(9).fillColor(COLOR_TEXT);
+      items.forEach((item, index) => {
+        ensureSpace(doc.heightOfString(item, { width: width - 14 }) + 4);
+        const y = doc.y;
+        doc.text(`${index + 1}.`, left, y, { width: 14 });
+        doc.text(item, left + 14, y, { width: width - 14 });
+        doc.moveDown(0.25);
+      });
+      doc.moveDown(0.6);
+    };
+
+    ensureSpace(40);
+    doc.font("Helvetica").fontSize(9).fillColor(COLOR_TEXT)
+      .text(
+        `Entre le CLIENT ci-dessus et ${company}${representative ? `, représentée par ${representative}` : ""}, ci-après appelée LE RESPONSABLE, les parties conviennent de ce qui suit :`,
+        left, doc.y, { width }
+      );
+    doc.moveDown(0.8);
+
+    section("A. Pour le client");
+    numbered(terms.forClient);
+    section("B. Pour le responsable");
+    numbered(terms.forProvider);
+    section("Clauses particulières");
+    numbered(terms.clauses);
+
+    /* --- Option abrasif (à initialer par le client) --- */
+    ensureSpace(70);
+    const optionY = doc.y;
+    const optionHeight = doc.heightOfString(terms.abrasiveOption, { width: width - 24 }) + 38;
+    doc.rect(left, optionY, width, optionHeight).lineWidth(0.7).strokeColor(COLOR_LINE).stroke();
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(COLOR_PRIMARY).text("OPTION — ÉPANDAGE D'ABRASIF", left + 12, optionY + 8, { width: width - 24 });
+    doc.font("Helvetica").fontSize(9).fillColor(COLOR_TEXT).text(terms.abrasiveOption, left + 12, doc.y + 3, { width: width - 24 });
+    const initialsY = optionY + optionHeight - 10;
+    doc.moveTo(right - 170, initialsY).lineTo(right - 12, initialsY).lineWidth(0.7).strokeColor(COLOR_TEXT).stroke();
+    doc.font("Helvetica").fontSize(7).fillColor(COLOR_MUTED).text("Initiales du client (si l'option est choisie)", right - 170, initialsY + 2, { width: 158, lineBreak: false });
+    doc.y = optionY + optionHeight + 18;
 
     /* --- Signatures --- */
-    doc.moveDown(2);
-    if (doc.y > doc.page.height - doc.page.margins.bottom - 60) doc.addPage();
-    const signY = doc.y + 20;
+    const deadline = signatureDeadline(contract.SeasonStartYear);
+    const beforeDeadline = issueDate <= deadline;
+    ensureSpace(90);
+    if (beforeDeadline) {
+      doc.font("Helvetica-Bold").fontSize(9).fillColor(COLOR_TEXT)
+        .text(`Signer et retourner une copie avant le ${formatDate(deadline)}.`, left, doc.y, { width });
+    }
+    const signY = doc.y + 34;
     const signWidth = (width - 40) / 2;
-    for (const [i, text] of ["Signature du client", "Date"].entries()) {
-      const x = left + i * (signWidth + 40);
+    ["Signature du client", "Date"].forEach((caption, index) => {
+      const x = left + index * (signWidth + 40);
       doc.moveTo(x, signY).lineTo(x + signWidth, signY).lineWidth(0.7).strokeColor(COLOR_TEXT).stroke();
-      doc.font("Helvetica").fontSize(8).fillColor(COLOR_MUTED).text(text, x, signY + 4, { width: signWidth });
+      doc.font("Helvetica").fontSize(8).fillColor(COLOR_MUTED).text(caption, x, signY + 4, { width: signWidth });
+    });
+    doc.y = signY + 26;
+    if (beforeDeadline) {
+      doc.font("Helvetica-Bold").fontSize(9).fillColor(COLOR_PRIMARY)
+        .text(`Note : offre valide jusqu'au ${formatDate(deadline)} ; ensuite, votre place ainsi que le prix ne sont plus garantis.`, left, doc.y, { width });
     }
 
     /* --- Pied de page (toutes les pages) --- */

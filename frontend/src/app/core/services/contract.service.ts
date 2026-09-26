@@ -5,7 +5,7 @@ import { Contract, ContractUpdate, RolloverResult } from "../models/domain.model
 
 export interface ContractSendResult {
   sentTo: string;
-  /** Vrai si NOTIFICATIONS_DRY_RUN : le courriel a seulement été journalisé. */
+  /** Vrai si SMTP n'est pas configuré ou CONTRACT_EMAIL_DRY_RUN=true : le courriel a seulement été journalisé. */
   dryRun: boolean;
   invoice: Invoice;
 }

@@ -35,7 +35,13 @@ export const defaultConfig = {
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
   TWILIO_MESSAGING_SERVICE_SID: process.env.TWILIO_MESSAGING_SERVICE_SID,
 
+  /** Notifications aux résidents (SMS + courriels de tempête/route/renouvellement). */
   NOTIFICATIONS_DRY_RUN: process.env.NOTIFICATIONS_DRY_RUN !== "false",
+  /**
+   * Courriels de contrat, indépendants de NOTIFICATIONS_DRY_RUN : envoi réel dès que
+   * SMTP est configuré. Mettre à "true" pour tester sans rien envoyer (journalisation seulement).
+   */
+  CONTRACT_EMAIL_DRY_RUN: process.env.CONTRACT_EMAIL_DRY_RUN === "true",
   PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL || "http://localhost:4200",
   UNSUBSCRIBE_SECRET: process.env.UNSUBSCRIBE_SECRET,
   PORTAL_TOKEN_SECRET: process.env.PORTAL_TOKEN_SECRET,
@@ -44,6 +50,12 @@ export const defaultConfig = {
 
   /* En-tête du contrat PDF. Les numéros TPS/TVQ sont obligatoires sur une facture au Québec. */
   COMPANY_NAME: process.env.COMPANY_NAME || "Groupe CG",
+  /** Raison sociale utilisée dans les clauses (ex. « Entreprises Christian Giroux ») ; défaut : COMPANY_NAME. */
+  COMPANY_LEGAL_NAME: process.env.COMPANY_LEGAL_NAME || process.env.COMPANY_NAME || "Groupe CG",
+  /** Signataire pour l'entreprise (ex. « M. Christian Giroux »), facultatif. */
+  COMPANY_REPRESENTATIVE: process.env.COMPANY_REPRESENTATIVE || "",
+  /** Ville où l'entente intervient (« Entente intervenue à Sherbrooke »), facultatif. */
+  COMPANY_CITY: process.env.COMPANY_CITY || "",
   COMPANY_ADDRESS: process.env.COMPANY_ADDRESS || "",
   COMPANY_PHONE: process.env.COMPANY_PHONE || "",
   COMPANY_EMAIL: process.env.COMPANY_EMAIL || "",

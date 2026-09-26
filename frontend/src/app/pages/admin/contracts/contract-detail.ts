@@ -232,7 +232,7 @@ export class ContractDetail implements OnInit {
       await this.reloadInvoices();
       this.info.set(
         `Contrat envoyé par courriel à ${result.sentTo}.` +
-          (result.dryRun ? " Mode test (NOTIFICATIONS_DRY_RUN) : le courriel a seulement été journalisé, rien n'est parti." : "")
+          (result.dryRun ? " Mode test (SMTP non configuré ou CONTRACT_EMAIL_DRY_RUN=true) : le courriel a seulement été journalisé, rien n'est parti." : "")
       );
     } catch (e) {
       this.error.set((e as Error).message);
