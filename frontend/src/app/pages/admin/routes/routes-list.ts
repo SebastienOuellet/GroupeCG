@@ -1,7 +1,9 @@
-import { Component, inject, OnInit, signal } from "@angular/core";
+import { Component, computed, inject, OnInit, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { RouteService } from "../../../core/services/route.service";
 import { Contract, RouteModel } from "../../../core/models/domain.model";
+import { UserService } from "../../../core/user.service";
+import { ManagedUser, OPERATOR_CAPABLE_ROLES } from "../../../core/models/user.model";
 
 @Component({
   selector: "app-routes-list",
@@ -10,6 +12,7 @@ import { Contract, RouteModel } from "../../../core/models/domain.model";
 })
 export class RoutesList implements OnInit {
   private readonly routeService = inject(RouteService);
+  private readonly userService = inject(UserService);
 
   readonly routes = signal<RouteModel[]>([]);
   readonly selectedRoute = signal<RouteModel | null>(null);
@@ -18,6 +21,9 @@ export class RoutesList implements OnInit {
   readonly error = signal<string | null>(null);
   readonly showForm = signal(false);
   readonly saving = signal(false);
+  readonly users = signal<ManagedUser[]>([]);
+  readonly operators = computed(() => this.users().filter((u) => u.Role === "operator"));
+  readonly admins = computed(() => this.users().filter((u) => u.Role === "admin"));
 
   form: Partial<RouteModel> = {};
 
@@ -29,7 +35,9 @@ export class RoutesList implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     try {
-      this.routes.set(await this.routeService.getRoutes());
+      const [routes, users] = await Promise.all([this.routeService.getRoutes(), this.userService.getUsers()]);
+      this.routes.set(routes);
+      this.users.set(users.filter((u) => OPERATOR_CAPABLE_ROLES.includes(u.Role)));
     } catch (e) {
       this.error.set((e as Error).message);
     } finally {
@@ -51,7 +59,7 @@ export class RoutesList implements OnInit {
   }
 
   openForm(route?: RouteModel): void {
-    this.form = route ? { ...route } : { SortOrder: this.routes().length };
+    this.form = route ? { ...route } : { SortOrder: this.routes().length, OperatorUserId: null };
     this.showForm.set(true);
   }
 
@@ -82,6 +90,10 @@ export class RoutesList implements OnInit {
     } catch (e) {
       this.error.set((e as Error).message);
     }
+  }
+
+  userLabel(user: ManagedUser): string {
+    return user.Name ? `${user.Name} (${user.Email})` : user.Email;
   }
 
   clientLabel(contract: Contract): string {

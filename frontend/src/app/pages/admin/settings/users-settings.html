@@ -1,0 +1,150 @@
+<div class="page-header">
+  <h1>Utilisateurs et rôles</h1>
+  <button type="button" class="btn-primary" (click)="openCreateForm()">+ Nouvel utilisateur</button>
+</div>
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+
+@if (notice(); as n) {
+  <div class="card" style="border-left: 4px solid #1e7a3c">
+    <h2 style="margin-top: 0">{{ n.title }}</h2>
+    <p
+      style="margin: 0 0 0.5rem; font-size: 0.875rem; font-weight: 600"
+      [style.color]="n.emailStatus === 'sent' ? '#1e7a3c' : n.emailStatus === 'skipped' ? '#5a646e' : '#a06000'"
+    >
+      {{ emailStatusLabels[n.emailStatus] }}
+    </p>
+    <p style="margin: 0 0 0.5rem; font-size: 0.875rem">Le mot de passe ne sera plus affiché après fermeture.</p>
+    <table style="font-size: 0.9375rem">
+      <tr><td style="padding-right: 1rem; color: #5a646e">Courriel</td><td><strong>{{ n.email }}</strong></td></tr>
+      <tr><td style="padding-right: 1rem; color: #5a646e">Mot de passe</td><td><strong style="font-family: monospace; font-size: 1.0625rem">{{ n.password }}</strong></td></tr>
+    </table>
+    <button type="button" class="btn-outline" style="margin-top: 0.75rem" (click)="notice.set(null)">Fermer</button>
+  </div>
+}
+
+@if (showCreateForm()) {
+  <div class="card">
+    <h2>Nouvel utilisateur</h2>
+    <form (ngSubmit)="createUser()">
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Courriel</span>
+          <input type="email" name="email" [(ngModel)]="newUser.email" required autocomplete="off" />
+        </label>
+        <label class="form-field">
+          <span>Nom</span>
+          <input name="name" [(ngModel)]="newUser.name" autocomplete="off" />
+        </label>
+        <label class="form-field">
+          <span>Rôle</span>
+          <select name="role" [(ngModel)]="newUser.role">
+            @for (role of roles; track role) {
+              <option [value]="role">{{ roleLabels[role] }}</option>
+            }
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Mot de passe (min. {{ minPasswordLength }} caractères)</span>
+          <div style="display: flex; gap: 0.375rem">
+            <input type="text" name="password" [(ngModel)]="newUser.password" required autocomplete="new-password" style="flex: 1; font-family: monospace" />
+            <button type="button" class="btn-outline" (click)="generateForNewUser()">Générer</button>
+          </div>
+        </label>
+      </div>
+      <div style="display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 0.875rem; font-size: 0.875rem">
+        <label style="display: flex; gap: 0.375rem; align-items: center">
+          <input type="checkbox" name="sendEmail" [(ngModel)]="newUser.sendEmail" />
+          Envoyer un courriel de bienvenue avec le lien de l'application
+        </label>
+        <label style="display: flex; gap: 0.375rem; align-items: center" [style.opacity]="newUser.sendEmail ? 1 : 0.5">
+          <input type="checkbox" name="includePassword" [(ngModel)]="newUser.includePassword" [disabled]="!newUser.sendEmail" />
+          Inclure le mot de passe dans le courriel
+        </label>
+      </div>
+      <button type="submit" class="btn-primary" [disabled]="creating()">{{ creating() ? "Création..." : "Créer le compte" }}</button>
+      <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showCreateForm.set(false)">Annuler</button>
+    </form>
+  </div>
+}
+
+@if (pendingCount() > 0) {
+  <div class="card" style="border-left: 4px solid #f0c674; font-size: 0.875rem">
+    {{ pendingCount() }} compte{{ pendingCount() > 1 ? "s" : "" }} sans rôle (« Aucun accès ») : attribuez-leur un rôle ci-dessous.
+  </div>
+}
+
+<div class="card">
+  @if (loading()) {
+    <p class="empty-state">Chargement...</p>
+  } @else if (users().length === 0) {
+    <p class="empty-state">Aucun utilisateur.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Courriel</th>
+          <th>Nom</th>
+          <th>Rôle</th>
+          <th>Routes assignées</th>
+          <th>Créé le</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (user of users(); track user.Id) {
+          <tr>
+            <td><strong>{{ user.Email }}</strong></td>
+            <td>{{ user.Name || "—" }}</td>
+            <td>
+              @if (user.Id === currentUserId()) {
+                <span class="badge badge--role-{{ user.Role }}">{{ roleLabels[user.Role] }}</span>
+                <span style="font-size: 0.75rem; color: #7a8591"> (vous)</span>
+              } @else {
+                <select
+                  #roleSelect
+                  [value]="user.Role"
+                  [disabled]="savingId() === user.Id"
+                  (change)="changeRole(user, roleSelect)"
+                  [attr.aria-label]="'Rôle de ' + user.Email"
+                >
+                  @for (role of roles; track role) {
+                    <option [value]="role" [selected]="role === user.Role">{{ roleLabels[role] }}</option>
+                  }
+                </select>
+              }
+            </td>
+            <td>{{ routeNames(user) }}</td>
+            <td>{{ user.createdAt | date: "yyyy-MM-dd" }}</td>
+            <td style="white-space: nowrap">
+              <button type="button" class="btn-outline" (click)="openPasswordForm(user)">Mot de passe</button>
+            </td>
+          </tr>
+          @if (passwordUserId() === user.Id) {
+            <tr>
+              <td colspan="6" style="background: #f7f8fa">
+                <form (ngSubmit)="savePassword(user)" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap">
+                  <span style="font-size: 0.875rem">Nouveau mot de passe pour <strong>{{ user.Email }}</strong> :</span>
+                  <input type="text" name="newPassword" [(ngModel)]="newPassword" required autocomplete="new-password" style="font-family: monospace; min-width: 14rem" />
+                  <button type="button" class="btn-outline" (click)="generateForPassword()">Générer</button>
+                  <label style="display: flex; gap: 0.375rem; align-items: center; font-size: 0.8125rem">
+                    <input type="checkbox" name="pwSendEmail" [(ngModel)]="passwordEmailOptions.sendEmail" />
+                    Aviser par courriel
+                  </label>
+                  <label style="display: flex; gap: 0.375rem; align-items: center; font-size: 0.8125rem" [style.opacity]="passwordEmailOptions.sendEmail ? 1 : 0.5">
+                    <input type="checkbox" name="pwIncludePassword" [(ngModel)]="passwordEmailOptions.includePassword" [disabled]="!passwordEmailOptions.sendEmail" />
+                    avec le mot de passe
+                  </label>
+                  <button type="submit" class="btn-primary" [disabled]="savingPassword()">{{ savingPassword() ? "Enregistrement..." : "Enregistrer" }}</button>
+                  <button type="button" class="btn-outline" (click)="passwordUserId.set(null)">Annuler</button>
+                </form>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  }
+</div>

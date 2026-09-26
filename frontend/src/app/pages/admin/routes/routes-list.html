@@ -21,6 +21,29 @@
           <input name="Description" [(ngModel)]="form.Description" />
         </label>
         <label class="form-field">
+          <span>Opérateur</span>
+          <select name="OperatorUserId" [(ngModel)]="form.OperatorUserId">
+            <option [ngValue]="null">— Aucun —</option>
+            @if (operators().length > 0) {
+              <optgroup label="Opérateurs">
+                @for (user of operators(); track user.Id) {
+                  <option [ngValue]="user.Id">{{ userLabel(user) }}</option>
+                }
+              </optgroup>
+            }
+            @if (admins().length > 0) {
+              <optgroup label="Administrateurs">
+                @for (user of admins(); track user.Id) {
+                  <option [ngValue]="user.Id">{{ userLabel(user) }}</option>
+                }
+              </optgroup>
+            }
+          </select>
+          @if (operators().length === 0) {
+            <small style="color: #7a8591">Aucun opérateur : attribuez le rôle dans Paramètres.</small>
+          }
+        </label>
+        <label class="form-field">
           <span>Ordre d'affichage</span>
           <input type="number" name="SortOrder" [(ngModel)]="form.SortOrder" />
         </label>

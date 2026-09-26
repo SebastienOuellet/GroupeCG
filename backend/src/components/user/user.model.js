@@ -1,7 +1,7 @@
 import { DataTypes } from "sequelize";
 
 export default (sequelize) => {
-  return sequelize.define(
+  const User = sequelize.define(
     "User",
     {
       Id: {
@@ -34,4 +34,10 @@ export default (sequelize) => {
       tableName: "Users"
     }
   );
+
+  User.associate = (db) => {
+    User.hasMany(db.Route, { foreignKey: "OperatorUserId", as: "OperatedRoutes" });
+  };
+
+  return User;
 };

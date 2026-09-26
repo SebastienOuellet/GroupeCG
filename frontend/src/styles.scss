@@ -81,6 +81,62 @@ button {
   }
 }
 
+/* --- Champs de formulaire (base globale) ---
+ * :where() = spécificité nulle : toute règle de composant (.login-card, .field, etc.)
+ * garde la priorité. Couvre les champs hors .form-field (tableaux, lignes intégrées, filtres).
+ */
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background-color: #fff;
+  color: var(--color-secondary);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  line-height: 1.25;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: #b3bac5;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(5, 34, 97, 0.12);
+  }
+
+  &:disabled {
+    background-color: #f3f4f6;
+    color: #8a939d;
+    cursor: not-allowed;
+  }
+}
+
+:where(select) {
+  appearance: none;
+  padding-right: 2rem;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%232f3840' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 12px 8px;
+}
+
+:where(input[type="checkbox"], input[type="radio"]) {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+/* Variante compacte dans les tableaux */
+.data-table :where(select, input:not([type="checkbox"]):not([type="radio"])) {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+  font-size: 0.875rem;
+}
+
 /* --- Éléments partagés des pages admin --- */
 
 .page-header {
@@ -153,21 +209,7 @@ button {
   font-size: 0.8125rem;
   color: var(--color-secondary);
 
-  input,
-  select,
-  textarea {
-    padding: 0.5rem 0.625rem;
-    border: 1px solid #d0d5dd;
-    border-radius: 6px;
-    font-size: 0.9375rem;
-    font-family: inherit;
-
-    &:focus {
-      outline: none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px rgba(5, 34, 97, 0.12);
-    }
-  }
+  /* Styles des champs : voir la base globale plus haut. */
 
   &--checkbox {
     flex-direction: row;
@@ -188,6 +230,9 @@ button {
   &--completed { background: #e7ecf7; color: var(--color-primary); }
   &--cancelled { background: #fbe9e7; color: #c0392b; }
   &--inactive { background: #fbe9e7; color: #c0392b; }
+  &--role-admin { background: #e7ecf7; color: var(--color-primary); }
+  &--role-operator { background: #e3f4e8; color: #1e7a3c; }
+  &--role-user { background: #fff8e6; color: #7a5c00; }
 }
 
 .empty-state {

@@ -1,5 +1,6 @@
 import db from "../../../models/index.js";
-import { NotFoundError } from "../../errors/Errors.js";
+import { BadRequestError, NotFoundError } from "../../errors/Errors.js";
+import { USER_ROLES } from "../user/user.constants.js";
 
 const { Route, Contract, Client, ServiceAddress, User } = db;
 
@@ -37,8 +38,34 @@ export const getRouteContracts = async (id) => {
   });
 };
 
+/** Rôles autorisés à opérer une route (un admin peut dépanner sur le terrain). */
+const OPERATOR_CAPABLE_ROLES = [USER_ROLES.OPERATOR, USER_ROLES.ADMIN];
+
+/**
+ * Normalise et valide OperatorUserId : null/""/undefined → null ; sinon doit
+ * désigner un utilisateur existant ayant un rôle capable d'opérer une route.
+ */
+const resolveOperatorUserId = async (operatorUserId) => {
+  if (operatorUserId === undefined) {
+    return undefined;
+  }
+  if (operatorUserId === null || operatorUserId === "") {
+    return null;
+  }
+  const operator = await User.findByPk(operatorUserId, { attributes: ["Id", "Role"] });
+  if (!operator || !OPERATOR_CAPABLE_ROLES.includes(operator.Role)) {
+    throw new BadRequestError("L'opérateur sélectionné est introuvable ou n'a pas le rôle opérateur.");
+  }
+  return operator.Id;
+};
+
 export const createRoute = async (routeInfo) => {
-  return Route.create(routeInfo);
+  const { Id, Operator, ...creatable } = routeInfo;
+  const operatorUserId = await resolveOperatorUserId(creatable.OperatorUserId);
+  if (operatorUserId !== undefined) {
+    creatable.OperatorUserId = operatorUserId;
+  }
+  return Route.create(creatable);
 };
 
 export const updateRoute = async (id, routeInfo) => {
@@ -46,7 +73,11 @@ export const updateRoute = async (id, routeInfo) => {
   if (!route) {
     throw new NotFoundError("Route introuvable.");
   }
-  const { Id, ...updatable } = routeInfo;
+  const { Id, Operator, ...updatable } = routeInfo;
+  const operatorUserId = await resolveOperatorUserId(updatable.OperatorUserId);
+  if (operatorUserId !== undefined) {
+    updatable.OperatorUserId = operatorUserId;
+  }
   Object.assign(route, updatable);
   await route.save();
   return route;

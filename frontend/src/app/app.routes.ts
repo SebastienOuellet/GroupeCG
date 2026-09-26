@@ -24,6 +24,11 @@ export const routes: Routes = [
     loadComponent: () => import("./pages/public/portal/portal-manage").then((m) => m.PortalManage)
   },
   {
+    path: "acces-en-attente",
+    canMatch: [authGuard],
+    loadComponent: () => import("./pages/pending-access/pending-access").then((m) => m.PendingAccess)
+  },
+  {
     path: "operateur",
     canMatch: [authGuard, roleGuard("admin", "operator")],
     loadComponent: () => import("./pages/operator/my-routes/my-routes").then((m) => m.MyRoutes)
@@ -74,6 +79,10 @@ export const routes: Routes = [
       {
         path: "factures",
         loadComponent: () => import("./pages/admin/invoices/invoices-list").then((m) => m.InvoicesList)
+      },
+      {
+        path: "parametres",
+        loadComponent: () => import("./pages/admin/settings/users-settings").then((m) => m.UsersSettings)
       }
     ]
   },

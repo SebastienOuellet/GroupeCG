@@ -2,6 +2,7 @@ import { inject } from "@angular/core";
 import { CanMatchFn, Router } from "@angular/router";
 import { AuthStore } from "./auth.store";
 import { UserService } from "../user.service";
+import { PENDING_ACCESS_PATH } from "./role.guard";
 
 /**
  * Garde du "/" racine: redirige selon le rôle plutôt que vers /login,
@@ -26,5 +27,7 @@ export const homeGuard: CanMatchFn = async () => {
   if (role === "admin") return true;
   if (role === "operator") return router.createUrlTree(["/operateur"]);
 
-  return router.createUrlTree(["/login"]);
+  // Authentifié mais sans rôle : ne PAS renvoyer vers /login (guestGuard
+  // renverrait vers "/" → boucle infinie).
+  return router.createUrlTree([PENDING_ACCESS_PATH]);
 };
