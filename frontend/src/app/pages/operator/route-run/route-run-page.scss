@@ -106,6 +106,20 @@
     }
   }
 
+  &__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  /* Consignes d'accès : toujours lisibles en entier, c'est ce que l'opérateur doit voir */
+  &__notes {
+    font-size: 0.8125rem;
+    color: #5a646e;
+    white-space: pre-line;
+  }
+
   &__actions {
     display: flex;
     align-items: center;

@@ -39,28 +39,7 @@
         <h3>Adresse de service</h3>
       }
 
-      <div class="form-grid">
-        <label class="form-field">
-          <span>Numéro civique</span>
-          <input name="CivicNumber" [(ngModel)]="addressForm.CivicNumber" required [attr.autofocus]="isAddressOnly || null" />
-        </label>
-        <label class="form-field">
-          <span>Rue</span>
-          <input name="Street" [(ngModel)]="addressForm.Street" required />
-        </label>
-        <label class="form-field">
-          <span>Ville</span>
-          <input name="City" [(ngModel)]="addressForm.City" required />
-        </label>
-        <label class="form-field">
-          <span>Code postal</span>
-          <input name="PostalCode" [(ngModel)]="addressForm.PostalCode" required maxlength="7" placeholder="J1H 1A1" />
-        </label>
-        <label class="form-field">
-          <span>Notes (accès, bornes...)</span>
-          <input name="AddressNotes" [(ngModel)]="addressForm.Notes" />
-        </label>
-      </div>
+      <app-address-fields [(address)]="addressForm" />
     </div>
 
     <footer class="quick-dialog__footer">

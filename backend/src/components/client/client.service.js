@@ -26,7 +26,7 @@ export const getClients = async ({ search, includeInactive = false } = {}) => {
 export const getClientById = async (id) => {
   const client = await Client.findByPk(id, {
     include: [
-      { model: ServiceAddress, as: "ServiceAddresses" },
+      { model: ServiceAddress, as: "ServiceAddresses", where: { IsActive: true }, required: false },
       { model: Contract, as: "Contracts", order: [["SeasonStartYear", "DESC"]] }
     ]
   });

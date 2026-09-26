@@ -1,0 +1,48 @@
+@if (enabled) {
+  <div class="addr-search">
+    <label class="form-field">
+      <span>Rechercher l'adresse (Google)</span>
+      <input
+        type="search"
+        autocomplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls="addr-search-list"
+        [attr.aria-expanded]="open()"
+        [attr.aria-activedescendant]="activeIndex() >= 0 ? 'addr-opt-' + activeIndex() : null"
+        placeholder="Ex. : 696 rue Charlemagne, Sherbrooke"
+        [value]="query()"
+        (input)="onInput($any($event.target).value)"
+        (keydown)="onKeydown($event)"
+        (blur)="onBlur()"
+      />
+    </label>
+    @if (loading()) {
+      <span class="addr-search__spinner" aria-hidden="true"></span>
+    }
+
+    @if (open()) {
+      <ul id="addr-search-list" class="addr-search__list" role="listbox">
+        @for (s of suggestions(); track $index) {
+          <li
+            [id]="'addr-opt-' + $index"
+            role="option"
+            [attr.aria-selected]="$index === activeIndex()"
+            [class.active]="$index === activeIndex()"
+            (pointerdown)="$event.preventDefault(); choose(s)"
+          >
+            <strong>{{ s.mainText }}</strong>
+            <small>{{ s.secondaryText }}</small>
+          </li>
+        } @empty {
+          <li class="addr-search__empty">Aucune adresse trouvée — saisissez-la manuellement ci-dessous.</li>
+        }
+        <li class="addr-search__attribution" aria-hidden="true">Fourni par Google</li>
+      </ul>
+    }
+
+    @if (error()) {
+      <p class="addr-search__error">{{ error() }}</p>
+    }
+  </div>
+}

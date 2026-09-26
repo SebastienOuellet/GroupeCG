@@ -1,3 +1,5 @@
+import { DrivewaySurface } from "./driveway-surface";
+
 export interface Client {
   Id: number;
   ClientNumber: number;
@@ -22,6 +24,10 @@ export interface ServiceAddress {
   Street: string;
   City: string;
   PostalCode: string;
+  /** DECIMAL côté PostgreSQL : Sequelize le renvoie en chaîne. */
+  Latitude: number | string | null;
+  Longitude: number | string | null;
+  DrivewaySurface: DrivewaySurface | null;
   Notes: string | null;
   IsActive: boolean;
   Tenants?: Tenant[];

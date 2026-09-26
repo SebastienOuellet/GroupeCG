@@ -1,0 +1,55 @@
+.address-card__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.address-card__notes {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  color: #7a8591;
+  white-space: pre-line;
+}
+
+.address-edit__title {
+  margin: 0 0 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--color-primary);
+}
+
+.address-edit__warning {
+  margin: 0 0 1rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.8125rem;
+  color: #7a5c00;
+  background: #fff8e6;
+  border: 1px solid #f0dca0;
+  border-radius: 6px;
+}
+
+.address-edit__actions {
+  flex-wrap: wrap;
+}
+
+/* Action destructive écartée des boutons principaux */
+.address-edit__deactivate {
+  margin-left: auto;
+}
+
+.address-edit__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #7a8591;
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .address-edit__deactivate {
+    margin-left: 0;
+  }
+
+  .address-edit__hint {
+    text-align: left;
+  }
+}

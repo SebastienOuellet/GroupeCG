@@ -1,0 +1,53 @@
+.street-view {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.street-view__frame {
+  position: relative;
+
+  &.hidden {
+    display: none;
+  }
+}
+
+.street-view__loading {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  color: #7a8591;
+}
+
+.street-view__pano {
+  width: 100%;
+  /* Paysage sur ordinateur, plus haut sur téléphone pour bien voir la porte */
+  aspect-ratio: 16 / 9;
+  min-height: 220px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #eef0f3;
+}
+
+@media (max-width: 720px) {
+  .street-view__pano {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+.street-view__message {
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.8125rem;
+  color: #7a8591;
+  background: #f8f9fb;
+  border: 1px dashed #d0d5dd;
+  border-radius: 8px;
+  text-align: center;
+
+  &--error {
+    color: #b42318;
+  }
+}

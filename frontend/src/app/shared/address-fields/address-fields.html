@@ -1,0 +1,59 @@
+<app-address-autocomplete (selected)="applyResolved($event)" />
+
+<div class="form-grid">
+  <label class="form-field">
+    <span>Numéro civique</span>
+    <input [ngModel]="address().CivicNumber" (ngModelChange)="setField('CivicNumber', $event)" [ngModelOptions]="{ standalone: true }" required />
+  </label>
+  <label class="form-field">
+    <span>Rue</span>
+    <input [ngModel]="address().Street" (ngModelChange)="setField('Street', $event)" [ngModelOptions]="{ standalone: true }" required />
+  </label>
+  <label class="form-field">
+    <span>Ville</span>
+    <input [ngModel]="address().City" (ngModelChange)="setField('City', $event)" [ngModelOptions]="{ standalone: true }" required />
+  </label>
+  <label class="form-field">
+    <span>Code postal</span>
+    <input
+      [ngModel]="address().PostalCode"
+      (ngModelChange)="setField('PostalCode', $event)"
+      [ngModelOptions]="{ standalone: true }"
+      required
+      maxlength="7"
+      placeholder="J1H 1A1"
+    />
+  </label>
+</div>
+
+<fieldset class="surface-picker">
+  <legend>Type d'entrée</legend>
+  <div class="surface-picker__options">
+    @for (option of surfaceOptions; track option.value) {
+      <button
+        type="button"
+        class="surface-picker__chip surface-badge surface-badge--{{ option.value }}"
+        [class.selected]="address().DrivewaySurface === option.value"
+        [attr.aria-pressed]="address().DrivewaySurface === option.value"
+        (click)="toggleSurface(option.value)"
+      >
+        {{ option.label }}
+      </button>
+    }
+  </div>
+</fieldset>
+
+<label class="form-field address-fields__notes">
+  <span>Notes (accès, bornes...)</span>
+  <textarea
+    rows="2"
+    [ngModel]="address().Notes"
+    (ngModelChange)="setField('Notes', $event)"
+    [ngModelOptions]="{ standalone: true }"
+    placeholder="Ex. : borne électrique à gauche, ne pas pousser sur le terrain du voisin"
+  ></textarea>
+</label>
+
+@if (showPreview) {
+  <app-street-view [latitude]="address().Latitude" [longitude]="address().Longitude" />
+}

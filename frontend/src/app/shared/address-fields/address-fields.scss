@@ -1,0 +1,53 @@
+.surface-picker {
+  border: none;
+  margin: 0 0 1rem;
+  padding: 0;
+
+  legend {
+    padding: 0;
+    margin-bottom: 0.4rem;
+    font-size: 0.8125rem;
+    color: var(--color-secondary);
+  }
+}
+
+.surface-picker__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.surface-picker__chip {
+  /* cible tactile confortable en cabine */
+  min-height: 40px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.1s, box-shadow 0.1s;
+
+  &:hover {
+    opacity: 0.85;
+  }
+
+  &.selected {
+    opacity: 1;
+    box-shadow: 0 0 0 2px var(--color-primary);
+  }
+}
+
+.address-fields__notes {
+  margin-bottom: 1rem;
+
+  textarea {
+    resize: vertical;
+    font: inherit;
+  }
+}
+
+@media (max-width: 720px) {
+  .surface-picker__chip {
+    min-height: 44px;
+    flex: 1 1 calc(33% - 0.5rem);
+  }
+}

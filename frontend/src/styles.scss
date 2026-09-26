@@ -258,6 +258,23 @@ button {
   &--role-user { background: #fff8e6; color: #7a5c00; }
 }
 
+/* Revêtement de l'entrée : couleurs proches du matériau, lisibles d'un coup d'œil en cabine */
+.surface-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+
+  &--pavers { background: #fbe6dc; color: #9a3b12; border-color: #f2c6b1; }
+  &--gravel { background: #f6ecd9; color: #7a5a1c; border-color: #e6d2a8; }
+  &--asphalt { background: #3a3f45; color: #fff; }
+  &--concrete { background: #e9ebee; color: #4a535c; border-color: #d0d5dd; }
+  &--other { background: #fff; color: #5a646e; border-color: #d0d5dd; }
+}
+
 .empty-state {
   padding: 2rem;
   text-align: center;

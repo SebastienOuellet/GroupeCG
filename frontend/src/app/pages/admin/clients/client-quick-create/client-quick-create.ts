@@ -3,6 +3,7 @@ import { FormsModule } from "@angular/forms";
 import { ClientService } from "../../../../core/services/client.service";
 import { ServiceAddressService } from "../../../../core/services/service-address.service";
 import { Client, ServiceAddress } from "../../../../core/models/domain.model";
+import { AddressFields } from "../../../../shared/address-fields/address-fields";
 
 export interface QuickCreateResult {
   client: Client;
@@ -19,7 +20,7 @@ export interface QuickCreateResult {
  */
 @Component({
   selector: "app-client-quick-create",
-  imports: [FormsModule],
+  imports: [FormsModule, AddressFields],
   templateUrl: "./client-quick-create.html",
   styleUrl: "./client-quick-create.scss"
 })

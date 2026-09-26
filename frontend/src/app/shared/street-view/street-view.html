@@ -1,0 +1,21 @@
+@if (enabled) {
+  <div class="street-view">
+    <div class="street-view__frame" [class.hidden]="state() !== 'ready' && state() !== 'loading'">
+      <div #pano class="street-view__pano"></div>
+      @if (state() === "loading") {
+        <p class="street-view__loading">Chargement de la vue de la rue…</p>
+      }
+    </div>
+    @switch (state()) {
+      @case ("no-coverage") {
+        <p class="street-view__message">Aucune image Street View à moins de 50 m de cette adresse.</p>
+      }
+      @case ("not-found") {
+        <p class="street-view__message">Adresse introuvable sur Google Maps.</p>
+      }
+      @case ("error") {
+        <p class="street-view__message street-view__message--error">Vue de la rue indisponible : {{ errorMessage() }}</p>
+      }
+    }
+  </div>
+}

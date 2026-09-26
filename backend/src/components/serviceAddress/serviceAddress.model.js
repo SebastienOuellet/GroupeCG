@@ -1,4 +1,5 @@
 import { DataTypes } from "sequelize";
+import { DRIVEWAY_SURFACES } from "./serviceAddress.constants.js";
 
 export default (sequelize) => {
   const ServiceAddress = sequelize.define(
@@ -31,6 +32,23 @@ export default (sequelize) => {
         allowNull: false,
         set(value) {
           this.setDataValue("PostalCode", String(value || "").replace(/\s/g, "").toUpperCase());
+        }
+      },
+      // Coordonnées Google (autocomplete) : Street View de l'entrée et futur tri de route
+      Latitude: {
+        type: DataTypes.DECIMAL(9, 6),
+        validate: { min: -90, max: 90 }
+      },
+      Longitude: {
+        type: DataTypes.DECIMAL(9, 6),
+        validate: { min: -180, max: 180 }
+      },
+      DrivewaySurface: {
+        type: DataTypes.STRING(20),
+        validate: { isIn: [DRIVEWAY_SURFACES] },
+        // "" venant d'un formulaire = non précisé
+        set(value) {
+          this.setDataValue("DrivewaySurface", value || null);
         }
       },
       Notes: {

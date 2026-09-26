@@ -3,10 +3,11 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { RouteRunService } from "../../../core/services/route-run.service";
 import { RouteModel } from "../../../core/models/domain.model";
 import { RouteRun, RouteRunStop, RouteRunStopStatus } from "../../../core/models/route-run.model";
+import { SurfaceBadge } from "../../../shared/surface-badge/surface-badge";
 
 @Component({
   selector: "app-route-run-page",
-  imports: [],
+  imports: [SurfaceBadge],
   templateUrl: "./route-run-page.html",
   styleUrl: "./route-run-page.scss"
 })

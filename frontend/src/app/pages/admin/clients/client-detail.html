@@ -59,28 +59,7 @@
 
     @if (showAddressForm()) {
       <form (ngSubmit)="saveAddress()" style="margin-bottom: 1.25rem">
-        <div class="form-grid">
-          <label class="form-field">
-            <span>Numéro civique</span>
-            <input name="CivicNumber" [(ngModel)]="addressForm.CivicNumber" required />
-          </label>
-          <label class="form-field">
-            <span>Rue</span>
-            <input name="Street" [(ngModel)]="addressForm.Street" required />
-          </label>
-          <label class="form-field">
-            <span>Ville</span>
-            <input name="City" [(ngModel)]="addressForm.City" required />
-          </label>
-          <label class="form-field">
-            <span>Code postal</span>
-            <input name="PostalCode" [(ngModel)]="addressForm.PostalCode" required />
-          </label>
-          <label class="form-field">
-            <span>Notes (accès, bornes...)</span>
-            <input name="Notes" [(ngModel)]="addressForm.Notes" />
-          </label>
-        </div>
+        <app-address-fields [(address)]="addressForm" />
         <div class="form-actions">
           <button type="submit" class="btn-primary" [disabled]="saving()">Créer l'adresse</button>
           <button type="button" class="btn-outline" (click)="showAddressForm.set(false)">Annuler</button>
@@ -94,12 +73,65 @@
 
     @for (address of c.ServiceAddresses; track address.Id) {
       <div class="sub-card">
-        <div class="section-header section-header--sm">
-          <strong>{{ address.CivicNumber }} {{ address.Street }}, {{ address.City }} {{ address.PostalCode }}</strong>
-          <button type="button" class="btn-outline" (click)="openTenantForm(address.Id)">+ Locataire</button>
-        </div>
-        @if (address.Notes) {
-          <p style="margin: 0 0 0.5rem; font-size: 0.8125rem; color: #7a8591">{{ address.Notes }}</p>
+        @if (editingAddressId() === address.Id) {
+          <form (ngSubmit)="saveAddressEdit(address)">
+            <h3 class="address-edit__title">Modifier l'adresse</h3>
+            <app-address-fields [(address)]="editForm" />
+
+            @if (locationChanged(address) && blockingContractCount(address.Id) > 0) {
+              <p class="address-edit__warning" role="alert">
+                ⚠ {{ blockingContractCount(address.Id) }} contrat(s) actif(s) ou brouillon(s) utilisent cette adresse : ils
+                afficheront la nouvelle adresse, tout comme l'historique. Si le client a déménagé, créez plutôt une nouvelle
+                adresse.
+              </p>
+            }
+
+            <div class="form-actions address-edit__actions">
+              <button type="submit" class="btn-primary" [disabled]="saving()">Enregistrer</button>
+              <button type="button" class="btn-outline" (click)="editingAddressId.set(null)">Annuler</button>
+              <button
+                type="button"
+                class="btn-danger address-edit__deactivate"
+                [disabled]="saving() || blockingContractCount(address.Id) > 0"
+                [title]="blockingContractCount(address.Id) > 0 ? 'Des contrats actifs ou brouillons utilisent cette adresse' : ''"
+                (click)="deactivateAddress(address)"
+              >
+                Désactiver l'adresse
+              </button>
+            </div>
+            @if (blockingContractCount(address.Id) > 0) {
+              <p class="address-edit__hint">
+                Désactivation impossible tant que des contrats actifs ou brouillons y sont liés.
+              </p>
+            }
+          </form>
+        } @else {
+          <div class="section-header section-header--sm">
+            <div class="address-card__title">
+              <strong>{{ addressLabel(address) }}</strong>
+              <app-surface-badge [surface]="address.DrivewaySurface" />
+            </div>
+            <div class="form-actions" style="margin: 0">
+              @if (mapsEnabled) {
+                <button type="button" class="btn-outline" [attr.aria-expanded]="streetViewAddressId() === address.Id" (click)="toggleStreetView(address.Id)">
+                  {{ streetViewAddressId() === address.Id ? "Masquer la vue" : "Vue de la rue" }}
+                </button>
+              }
+              <button type="button" class="btn-outline" (click)="openAddressEdit(address)">Modifier</button>
+              <button type="button" class="btn-outline" (click)="openTenantForm(address.Id)">+ Locataire</button>
+            </div>
+          </div>
+          @if (address.Notes) {
+            <p class="address-card__notes">{{ address.Notes }}</p>
+          }
+          @if (streetViewAddressId() === address.Id) {
+            <app-street-view
+              [latitude]="address.Latitude"
+              [longitude]="address.Longitude"
+              [addressText]="addressLabel(address)"
+              (located)="saveCoordinates(address, $event)"
+            />
+          }
         }
 
         @if (tenantFormAddressId() === address.Id) {
