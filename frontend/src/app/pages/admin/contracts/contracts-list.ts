@@ -7,12 +7,13 @@ import { RouteService } from "../../../core/services/route.service";
 import { ServiceAddressService } from "../../../core/services/service-address.service";
 import { Client, Contract, RouteModel, ServiceAddress } from "../../../core/models/domain.model";
 import { ClientQuickCreate, QuickCreateResult } from "../clients/client-quick-create/client-quick-create";
+import { ClientPicker } from "../clients/client-picker/client-picker";
 
 type QuickCreateMode = "client" | "address";
 
 @Component({
   selector: "app-contracts-list",
-  imports: [FormsModule, ClientQuickCreate],
+  imports: [FormsModule, ClientQuickCreate, ClientPicker],
   templateUrl: "./contracts-list.html"
 })
 export class ContractsList implements OnInit {
@@ -32,6 +33,7 @@ export class ContractsList implements OnInit {
   readonly showForm = signal(false);
   readonly saving = signal(false);
   readonly quickCreate = signal<QuickCreateMode | null>(null);
+  readonly quickCreatePrefill = signal("");
 
   filters = { seasonYear: "", status: "", routeId: "" };
   form: Partial<Contract> & { ClientId?: number } = {};
@@ -99,8 +101,10 @@ export class ContractsList implements OnInit {
     return this.clients().find((client) => client.Id === Number(this.form.ClientId)) ?? null;
   }
 
-  openQuickCreate(mode: QuickCreateMode): void {
+  /** `prefill` : texte tapé dans la recherche client, repris comme nom du nouveau client. */
+  openQuickCreate(mode: QuickCreateMode, prefill = ""): void {
     if (mode === "address" && !this.selectedClient()) return;
+    this.quickCreatePrefill.set(prefill);
     this.quickCreate.set(mode);
   }
 
@@ -118,6 +122,10 @@ export class ContractsList implements OnInit {
   }
 
   async save(): Promise<void> {
+    if (!this.form.ClientId) {
+      this.error.set("Choisissez un client.");
+      return;
+    }
     this.saving.set(true);
     this.error.set(null);
     try {
@@ -167,10 +175,5 @@ export class ContractsList implements OnInit {
   addressLabel(contract: Contract): string {
     const address = contract.ServiceAddress;
     return address ? `${address.CivicNumber} ${address.Street}, ${address.City}` : "—";
-  }
-
-  clientDisplay(client: Client): string {
-    const person = [client.FirstName, client.LastName].filter(Boolean).join(" ");
-    return `#${client.ClientNumber} — ${client.CompanyName || person || "?"}`;
   }
 }

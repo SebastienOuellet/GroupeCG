@@ -23,12 +23,13 @@
             <label for="contract-client">Client</label>
             <button type="button" class="btn-link" (click)="openQuickCreate('client')" title="Créer un nouveau client">+ Nouveau</button>
           </div>
-          <select id="contract-client" name="ClientId" [(ngModel)]="form.ClientId" (ngModelChange)="onClientChange()" required>
-            <option [ngValue]="undefined">Choisir...</option>
-            @for (client of clients(); track client.Id) {
-              <option [ngValue]="client.Id">{{ clientDisplay(client) }}</option>
-            }
-          </select>
+          <app-client-picker
+            inputId="contract-client"
+            [clients]="clients()"
+            [(value)]="form.ClientId"
+            (valueChange)="onClientChange()"
+            (createRequested)="openQuickCreate('client', $event)"
+          />
         </div>
         <div class="form-field">
           <div class="form-field__label-row">
@@ -90,6 +91,7 @@
 @if (quickCreate(); as mode) {
   <app-client-quick-create
     [client]="mode === 'address' ? selectedClient() : null"
+    [prefillName]="quickCreatePrefill()"
     (created)="onQuickCreated($event)"
     (closed)="quickCreate.set(null)"
   />

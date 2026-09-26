@@ -1,0 +1,59 @@
+<div class="client-picker">
+  <input
+    #field
+    [id]="inputId()"
+    type="text"
+    role="combobox"
+    autocomplete="off"
+    aria-autocomplete="list"
+    [attr.aria-expanded]="open()"
+    [attr.aria-controls]="inputId() + '-list'"
+    [attr.aria-activedescendant]="open() ? optionId(activeIndex()) : null"
+    [value]="displayText()"
+    [placeholder]="selected() && open() ? label(selected()!) : 'Rechercher par nom, numéro, téléphone...'"
+    (focus)="onFocus()"
+    (input)="onInput($event)"
+    (blur)="onBlur()"
+    (keydown)="onKeydown($event)"
+  />
+  @if (selected() && !open()) {
+    <button type="button" class="client-picker__clear" aria-label="Retirer le client" (mousedown)="$event.preventDefault()" (click)="clear(field)">×</button>
+  }
+
+  @if (open()) {
+    <ul class="client-picker__list" role="listbox" [id]="inputId() + '-list'">
+      @for (client of results(); track client.Id; let i = $index) {
+        <li
+          role="option"
+          [id]="optionId(i)"
+          class="client-picker__option"
+          [class.client-picker__option--active]="i === activeIndex()"
+          [attr.aria-selected]="client.Id === value()"
+          (mousedown)="onOptionMouseDown($event, i)"
+          (mouseenter)="activeIndex.set(i)"
+        >
+          <span>{{ label(client) }}</span>
+          @if (secondary(client)) {
+            <small>{{ secondary(client) }}</small>
+          }
+        </li>
+      } @empty {
+        <li class="client-picker__empty">Aucun client trouvé.</li>
+      }
+      @if (hiddenCount() > 0) {
+        <li class="client-picker__empty">+ {{ hiddenCount() }} autre(s) — précisez la recherche.</li>
+      }
+      <li
+        role="option"
+        [id]="optionId(createIndex())"
+        class="client-picker__option client-picker__option--create"
+        [class.client-picker__option--active]="activeIndex() === createIndex()"
+        aria-selected="false"
+        (mousedown)="onOptionMouseDown($event, createIndex())"
+        (mouseenter)="activeIndex.set(createIndex())"
+      >
+        + Créer un nouveau client{{ query().trim() ? " « " + query().trim() + " »" : "" }}
+      </li>
+    </ul>
+  }
+</div>

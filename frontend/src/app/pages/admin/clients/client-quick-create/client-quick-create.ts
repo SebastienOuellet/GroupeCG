@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, inject, input, output, signal, viewChild } from "@angular/core";
+import { AfterViewInit, Component, OnInit, ElementRef, inject, input, output, signal, viewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ClientService } from "../../../../core/services/client.service";
 import { ServiceAddressService } from "../../../../core/services/service-address.service";
@@ -23,11 +23,13 @@ export interface QuickCreateResult {
   templateUrl: "./client-quick-create.html",
   styleUrl: "./client-quick-create.scss"
 })
-export class ClientQuickCreate implements AfterViewInit {
+export class ClientQuickCreate implements OnInit, AfterViewInit {
   private readonly clientService = inject(ClientService);
   private readonly addressService = inject(ServiceAddressService);
 
   readonly client = input<Client | null>(null);
+  /** Texte tapé dans la recherche : « Jean Tremblay » → Prénom « Jean », Nom « Tremblay ». */
+  readonly prefillName = input("");
   readonly created = output<QuickCreateResult>();
   readonly closed = output<void>();
 
@@ -40,6 +42,15 @@ export class ClientQuickCreate implements AfterViewInit {
 
   clientForm: Partial<Client> = { SmsConsent: true, EmailConsent: true };
   addressForm: Partial<ServiceAddress> = {};
+
+  ngOnInit(): void {
+    const text = this.prefillName().trim();
+    // Une recherche par numéro de client ou de téléphone n'est pas un nom.
+    if (!text || /^[\d\s+()#-]+$/.test(text)) return;
+    const [first, ...rest] = text.split(/\s+/);
+    this.clientForm.FirstName = first;
+    if (rest.length) this.clientForm.LastName = rest.join(" ");
+  }
 
   ngAfterViewInit(): void {
     this.dialog().nativeElement.showModal();
