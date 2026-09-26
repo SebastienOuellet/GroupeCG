@@ -1,5 +1,23 @@
-<div class="shell">
-  <aside class="sidebar">
+<div class="shell" [class.shell--menu-open]="menuOpen()">
+  <!-- Barre du haut : visible seulement sur mobile/tablette (menu repliable) -->
+  <header class="topbar">
+    <button
+      type="button"
+      class="topbar__menu"
+      (click)="toggleMenu()"
+      [attr.aria-expanded]="menuOpen()"
+      aria-controls="admin-sidebar"
+      aria-label="Ouvrir le menu"
+    >
+      <span></span><span></span><span></span>
+    </button>
+    <img class="topbar__logo" src="images/logo.png" alt="Groupe CG" />
+    <span class="topbar__title">Groupe CG</span>
+  </header>
+
+  <div class="backdrop" (click)="closeMenu()" aria-hidden="true"></div>
+
+  <aside id="admin-sidebar" class="sidebar">
     <img class="sidebar__logo" src="images/logo.png" alt="Groupe CG" />
 
     <nav class="sidebar__nav">

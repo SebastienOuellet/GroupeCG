@@ -27,7 +27,7 @@
           Ces avis vous informent avant le passage du déneigeur (ex. déplacer votre véhicule).
         </p>
         <form (ngSubmit)="savePreferences()">
-          <div style="display: flex; gap: 1.5rem; margin-bottom: 1rem">
+          <div class="checkbox-row">
             <label class="form-field form-field--checkbox">
               <input type="checkbox" name="SmsConsent" [(ngModel)]="preferences.SmsConsent" />
               <span>Recevoir les avis par SMS ({{ m.client.Phone || "aucun numéro" }})</span>
@@ -42,8 +42,8 @@
       </div>
 
       <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem">
-          <h2 style="margin: 0">Personnes à joindre à cette adresse</h2>
+        <div class="section-header">
+          <h2>Personnes à joindre à cette adresse</h2>
           <button type="button" class="btn-outline" (click)="openTenantForm()">+ Ajouter</button>
         </div>
         <p style="font-size: 0.8125rem; color: #7a8591; margin-top: -0.5rem">
@@ -70,8 +70,10 @@
                 <input type="email" name="Email" [(ngModel)]="tenantForm.Email" />
               </label>
             </div>
-            <button type="submit" class="btn-primary" [disabled]="saving()">Ajouter</button>
-            <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showTenantForm.set(false)">Annuler</button>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary" [disabled]="saving()">Ajouter</button>
+              <button type="button" class="btn-outline" (click)="showTenantForm.set(false)">Annuler</button>
+            </div>
           </form>
         }
 
@@ -90,10 +92,10 @@
             <tbody>
               @for (tenant of m.tenants; track tenant.Id) {
                 <tr>
-                  <td>{{ tenantName(tenant) }}</td>
-                  <td>{{ tenant.Phone || "—" }}</td>
-                  <td>{{ tenant.Email || "—" }}</td>
-                  <td><button type="button" class="btn-danger" (click)="removeTenant(tenant)">Retirer</button></td>
+                  <td data-label="Nom">{{ tenantName(tenant) }}</td>
+                  <td data-label="Téléphone">{{ tenant.Phone || "—" }}</td>
+                  <td data-label="Courriel">{{ tenant.Email || "—" }}</td>
+                  <td class="cell-actions"><button type="button" class="btn-danger" (click)="removeTenant(tenant)">Retirer</button></td>
                 </tr>
               }
             </tbody>

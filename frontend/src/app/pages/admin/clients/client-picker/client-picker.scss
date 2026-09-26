@@ -82,3 +82,16 @@
   font-size: 0.8125rem;
   color: #7a8591;
 }
+
+/* Mobile : la liste suit exactement la largeur du champ (pas de débordement à droite) */
+@media (max-width: 720px) {
+  .client-picker__list {
+    width: 100%;
+    max-width: none;
+    max-height: 50vh;
+  }
+
+  .client-picker__clear {
+    padding: 0.5rem 0.625rem;
+  }
+}

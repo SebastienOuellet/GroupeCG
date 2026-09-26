@@ -37,7 +37,7 @@
           <input name="Notes" [(ngModel)]="clientForm.Notes" />
         </label>
       </div>
-      <div style="display: flex; gap: 1.5rem; margin-bottom: 1rem">
+      <div class="checkbox-row">
         <label class="form-field form-field--checkbox">
           <input type="checkbox" name="SmsConsent" [(ngModel)]="clientForm.SmsConsent" />
           <span>Consentement SMS</span>
@@ -52,8 +52,8 @@
   </div>
 
   <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem">
-      <h2 style="margin: 0">Adresses de service</h2>
+    <div class="section-header">
+      <h2>Adresses de service</h2>
       <button type="button" class="btn-outline" (click)="openAddressForm()">+ Ajouter une adresse</button>
     </div>
 
@@ -81,8 +81,10 @@
             <input name="Notes" [(ngModel)]="addressForm.Notes" />
           </label>
         </div>
-        <button type="submit" class="btn-primary" [disabled]="saving()">Créer l'adresse</button>
-        <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showAddressForm.set(false)">Annuler</button>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" [disabled]="saving()">Créer l'adresse</button>
+          <button type="button" class="btn-outline" (click)="showAddressForm.set(false)">Annuler</button>
+        </div>
       </form>
     }
 
@@ -91,8 +93,8 @@
     }
 
     @for (address of c.ServiceAddresses; track address.Id) {
-      <div style="border: 1px solid #e3e6ea; border-radius: 8px; padding: 1rem; margin-bottom: 1rem">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem">
+      <div class="sub-card">
+        <div class="section-header section-header--sm">
           <strong>{{ address.CivicNumber }} {{ address.Street }}, {{ address.City }} {{ address.PostalCode }}</strong>
           <button type="button" class="btn-outline" (click)="openTenantForm(address.Id)">+ Locataire</button>
         </div>
@@ -120,8 +122,10 @@
                 <input type="email" name="TEmail" [(ngModel)]="tenantForm.Email" />
               </label>
             </div>
-            <button type="submit" class="btn-primary" [disabled]="saving()">Ajouter</button>
-            <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="tenantFormAddressId.set(null)">Annuler</button>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary" [disabled]="saving()">Ajouter</button>
+              <button type="button" class="btn-outline" (click)="tenantFormAddressId.set(null)">Annuler</button>
+            </div>
           </form>
         }
 
@@ -140,12 +144,12 @@
             <tbody>
               @for (tenant of tenantsByAddress()[address.Id]; track tenant.Id) {
                 <tr>
-                  <td>{{ tenantName(tenant) }}</td>
-                  <td>{{ tenant.Phone || "—" }}</td>
-                  <td>{{ tenant.Email || "—" }}</td>
-                  <td>{{ tenant.SmsConsent ? "✓" : "✗" }}</td>
-                  <td>{{ tenant.EmailConsent ? "✓" : "✗" }}</td>
-                  <td>
+                  <td data-label="Locataire">{{ tenantName(tenant) }}</td>
+                  <td data-label="Téléphone">{{ tenant.Phone || "—" }}</td>
+                  <td data-label="Courriel">{{ tenant.Email || "—" }}</td>
+                  <td data-label="SMS">{{ tenant.SmsConsent ? "✓" : "✗" }}</td>
+                  <td data-label="Courriel OK">{{ tenant.EmailConsent ? "✓" : "✗" }}</td>
+                  <td class="cell-actions">
                     <button type="button" class="btn-danger" (click)="removeTenant(tenant)">Retirer</button>
                   </td>
                 </tr>
@@ -177,11 +181,11 @@
         <tbody>
           @for (contract of c.Contracts; track contract.Id) {
             <tr class="clickable" [routerLink]="['/contrats', contract.Id]">
-              <td><strong>{{ contract.Reference }}</strong></td>
-              <td>{{ contract.ContractNumber }}</td>
-              <td>{{ contract.SeasonStartYear }}-{{ contract.SeasonStartYear + 1 }}</td>
-              <td>{{ contract.Price }} $</td>
-              <td><span class="badge badge--{{ contract.Status }}">{{ contract.Status }}</span></td>
+              <td data-label="Référence"><strong>{{ contract.Reference }}</strong></td>
+              <td data-label="# Contrat">{{ contract.ContractNumber }}</td>
+              <td data-label="Saison">{{ contract.SeasonStartYear }}-{{ contract.SeasonStartYear + 1 }}</td>
+              <td data-label="Prix">{{ contract.Price }} $</td>
+              <td data-label="Statut"><span class="badge badge--{{ contract.Status }}">{{ contract.Status }}</span></td>
             </tr>
           }
         </tbody>

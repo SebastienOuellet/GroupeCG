@@ -37,19 +37,21 @@
           <input name="Notes" [(ngModel)]="form.Notes" />
         </label>
       </div>
-      <button type="submit" class="btn-primary" [disabled]="saving()">Créer</button>
-      <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showForm.set(false)">Annuler</button>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" [disabled]="saving()">Créer</button>
+        <button type="button" class="btn-outline" (click)="showForm.set(false)">Annuler</button>
+      </div>
     </form>
   </div>
 }
 
 <div class="card">
-  <form (ngSubmit)="load()" style="margin-bottom: 1rem; display: flex; gap: 0.5rem">
+  <form class="search-bar" (ngSubmit)="load()">
     <input
       name="search"
       [(ngModel)]="search"
       placeholder="Rechercher par numéro, nom, entreprise..."
-      style="flex: 1; padding: 0.5rem 0.625rem; border: 1px solid #d0d5dd; border-radius: 6px"
+      type="search"
     />
     <button type="submit" class="btn-outline">Rechercher</button>
   </form>
@@ -72,11 +74,11 @@
       <tbody>
         @for (client of clients(); track client.Id) {
           <tr class="clickable" (click)="open(client)">
-            <td><strong>{{ client.ClientNumber }}</strong></td>
-            <td>{{ displayName(client) }}</td>
-            <td>{{ client.Email || "—" }}</td>
-            <td>{{ client.Phone || "—" }}</td>
-            <td>
+            <td data-label="#"><strong>{{ client.ClientNumber }}</strong></td>
+            <td data-label="Nom">{{ displayName(client) }}</td>
+            <td data-label="Courriel">{{ client.Email || "—" }}</td>
+            <td data-label="Téléphone">{{ client.Phone || "—" }}</td>
+            <td data-label="Statut">
               <span class="badge" [class.badge--active]="client.IsActive" [class.badge--inactive]="!client.IsActive">
                 {{ client.IsActive ? "Actif" : "Inactif" }}
               </span>

@@ -1,6 +1,6 @@
 <div class="page-header">
   <h1>Contrats</h1>
-  <div style="display: flex; gap: 0.5rem">
+  <div class="page-header__actions">
     <button type="button" class="btn-outline" (click)="rollover()">Roulement de saison</button>
     <button type="button" class="btn-primary" (click)="openForm()">+ Nouveau contrat</button>
   </div>
@@ -82,8 +82,10 @@
           </select>
         </label>
       </div>
-      <button type="submit" class="btn-primary" [disabled]="saving()">Créer</button>
-      <button type="button" class="btn-outline" style="margin-left: 0.5rem" (click)="showForm.set(false)">Annuler</button>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" [disabled]="saving()">Créer</button>
+        <button type="button" class="btn-outline" (click)="showForm.set(false)">Annuler</button>
+      </div>
     </form>
   </div>
 }
@@ -98,7 +100,7 @@
 }
 
 <div class="card">
-  <form (ngSubmit)="load()" style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap">
+  <form class="filter-bar" (ngSubmit)="load()">
     <label class="form-field">
       <span>Saison</span>
       <select name="fSeason" [(ngModel)]="filters.seasonYear" (ngModelChange)="load()">
@@ -149,13 +151,13 @@
       <tbody>
         @for (contract of contracts(); track contract.Id) {
           <tr class="clickable" (click)="open(contract)">
-            <td><strong>{{ contract.Reference }}</strong></td>
-            <td>{{ contract.ContractNumber }}</td>
-            <td>{{ clientLabel(contract) }}</td>
-            <td>{{ addressLabel(contract) }}</td>
-            <td>{{ contract.Route?.Name || "—" }}</td>
-            <td>{{ contract.Price }} $</td>
-            <td><span class="badge badge--{{ contract.Status }}">{{ contract.Status }}</span></td>
+            <td data-label="Référence"><strong>{{ contract.Reference }}</strong></td>
+            <td data-label="# Contrat">{{ contract.ContractNumber }}</td>
+            <td data-label="Client">{{ clientLabel(contract) }}</td>
+            <td data-label="Adresse">{{ addressLabel(contract) }}</td>
+            <td data-label="Route">{{ contract.Route?.Name || "—" }}</td>
+            <td data-label="Prix">{{ contract.Price }} $</td>
+            <td data-label="Statut"><span class="badge badge--{{ contract.Status }}">{{ contract.Status }}</span></td>
           </tr>
         }
       </tbody>
