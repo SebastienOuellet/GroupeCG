@@ -43,6 +43,8 @@ export class ClientDetail implements OnInit {
   readonly showAddressForm = signal(false);
   /** Formulaire de locataire ouvert : ajout (tenant sans Id) ou modification. */
   readonly tenantEditor = signal<{ addressId: number; tenant: Partial<Tenant> } | null>(null);
+  /** Adresses dont la liste de locataires est dépliée (fermée par défaut : un immeuble peut en avoir des dizaines). */
+  readonly openTenantAddresses = signal<ReadonlySet<number>>(new Set());
   readonly channels: NoticeChannel[] = ["sms", "email"];
   readonly emailError = emailError;
   readonly phoneError = phoneError;
@@ -221,8 +223,38 @@ export class ClientDetail implements OnInit {
     return `${address.CivicNumber} ${address.Street}, ${address.City} ${address.PostalCode}`;
   }
 
+  isTenantsOpen(addressId: number): boolean {
+    return this.openTenantAddresses().has(addressId);
+  }
+
+  toggleTenants(addressId: number, open?: boolean): void {
+    this.openTenantAddresses.update((current) => {
+      const next = new Set(current);
+      const shouldOpen = open ?? !next.has(addressId);
+      if (shouldOpen) next.add(addressId);
+      else next.delete(addressId);
+      return next;
+    });
+  }
+
+  unsubscribedCount(addressId: number): number {
+    return (this.tenantsByAddress()[addressId] ?? []).filter((tenant) => tenant.Suppressions?.sms || tenant.Suppressions?.email).length;
+  }
+
+  /** Contrats en cours à cette adresse (actif, ou brouillon après un roulement de saison), saison la plus récente d'abord. */
+  addressContracts(address: ServiceAddress): Contract[] {
+    return (this.client()?.Contracts ?? [])
+      .filter((contract) => contract.ServiceAddressId === address.Id && (contract.Status === "active" || contract.Status === "draft"))
+      .sort((a, b) => b.SeasonStartYear - a.SeasonStartYear);
+  }
+
+  contractStatusLabel(contract: Contract): string {
+    return contract.Status === "active" ? "Actif" : "Brouillon";
+  }
+
   openTenantForm(addressId: number): void {
     this.tenantEditor.set({ addressId, tenant: { ServiceAddressId: addressId, SmsConsent: true, EmailConsent: true } });
+    this.toggleTenants(addressId, true);
   }
 
   editTenant(tenant: Tenant): void {

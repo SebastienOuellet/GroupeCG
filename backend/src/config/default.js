@@ -61,6 +61,6 @@ export const defaultConfig = {
   COMPANY_EMAIL: process.env.COMPANY_EMAIL || "",
   COMPANY_TPS_NUMBER: process.env.COMPANY_TPS_NUMBER || "",
   COMPANY_TVQ_NUMBER: process.env.COMPANY_TVQ_NUMBER || "",
-  /** Chemin du logo PNG/JPG ; défaut : backend/assets/logo.png. */
-  COMPANY_LOGO_PATH: process.env.COMPANY_LOGO_PATH || path.resolve(__dirname, "../../assets/logo.png")
+  /** Chemin du logo PNG/JPG ; défaut : le logo du frontend (frontend/public/images/logo.png). */
+  COMPANY_LOGO_PATH: process.env.COMPANY_LOGO_PATH || path.resolve(__dirname, "../../../frontend/public/images/logo.png")
 };

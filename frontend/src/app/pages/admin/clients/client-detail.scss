@@ -44,6 +44,89 @@
   text-align: right;
 }
 
+/* Contrat en cours à l'adresse (lien vers le contrat) */
+.contract-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  border: 1px solid transparent;
+
+  &--active {
+    background: #e3f4e8;
+    color: #1e7a3c;
+    border-color: #bfe3c9;
+  }
+
+  &--draft {
+    background: #eef0f3;
+    color: #5a646e;
+    border-color: #d0d5dd;
+  }
+
+  &--none {
+    color: #a35200;
+    background: #fff6e5;
+    border-color: #f0d49b;
+  }
+
+  &:is(a):hover {
+    text-decoration: underline;
+  }
+}
+
+/* Locataires : accordéon fermé par défaut */
+.tenants {
+  margin-top: 0.5rem;
+  border-top: 1px solid #eef0f3;
+
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.625rem 0.25rem;
+    background: none;
+    border: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-secondary);
+    text-align: left;
+
+    &:hover {
+      color: var(--color-primary);
+    }
+  }
+
+  &__chevron {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.15s;
+  }
+
+  &__toggle[aria-expanded="true"] &__chevron {
+    transform: rotate(45deg);
+  }
+
+  &__flag {
+    padding: 0.1rem 0.5rem;
+    border-radius: 99px;
+    background: #fbe9e7;
+    color: #c0392b;
+    font-size: 0.75rem;
+  }
+
+  &__panel {
+    padding-bottom: 0.25rem;
+  }
+}
+
 /* Canal désinscrit : explication sous les cases */
 .locked-note {
   margin: -0.25rem 0 1rem;
@@ -56,6 +139,10 @@
 }
 
 @media (max-width: 720px) {
+  .tenants__toggle {
+    min-height: 44px;
+  }
+
   .address-edit__deactivate {
     margin-left: 0;
   }

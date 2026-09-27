@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import PDFDocument from "pdfkit";
 import { ConfigService } from "../config/configService.js";
+import { logger } from "../config/logger.js";
 import { buildContractTerms, signatureDeadline } from "./contractTerms.js";
 
 const configService = new ConfigService();
@@ -87,7 +88,12 @@ export const buildContractPdf = ({ contract, invoice, dueDate, issueDate, terms:
     const logoPath = configService.get("COMPANY_LOGO_PATH");
     const top = doc.y;
     if (logoPath && fs.existsSync(logoPath)) {
-      doc.image(logoPath, left, top, { fit: [70, 70] });
+      // Logo illisible (fichier corrompu, mauvais format) : on continue sans, le contrat reste générable.
+      try {
+        doc.image(logoPath, left, top, { fit: [70, 70] });
+      } catch (error) {
+        logger.warn(`Logo ignoré dans le PDF (${logoPath}) : ${error.message}`);
+      }
     }
     const companyLines = [
       configService.get("COMPANY_ADDRESS"),
