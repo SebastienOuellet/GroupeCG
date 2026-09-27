@@ -1,6 +1,7 @@
 import * as tenantService from "./tenant.service.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { USER_ROLES } from "../user/user.constants.js";
+import { CONSENT_METHODS } from "../consent/consent.constants.js";
 
 const adminOnly = requireRole(USER_ROLES.ADMIN);
 
@@ -28,7 +29,7 @@ const getTenantById = async (req, res, next) => {
 
 const createTenant = async (req, res, next) => {
   try {
-    const tenant = await tenantService.createTenant(req.body, { actorUserId: req.user?.Id });
+    const tenant = await tenantService.createTenant(req.body, { method: CONSENT_METHODS.ADMIN, actorUserId: req.user?.Id });
     res.status(201).json(tenant);
   } catch (error) {
     next(error);
@@ -37,7 +38,7 @@ const createTenant = async (req, res, next) => {
 
 const updateTenant = async (req, res, next) => {
   try {
-    const tenant = await tenantService.updateTenant(req.params.id, req.body, { actorUserId: req.user?.Id });
+    const tenant = await tenantService.updateTenant(req.params.id, req.body, { method: CONSENT_METHODS.ADMIN, actorUserId: req.user?.Id });
     res.status(200).json(tenant);
   } catch (error) {
     next(error);

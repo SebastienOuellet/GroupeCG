@@ -37,7 +37,7 @@ const createClient = async (req, res, next) => {
 
 const updateClient = async (req, res, next) => {
   try {
-    const client = await clientService.updateClient(req.params.id, req.body);
+    const client = await clientService.updateClient(req.params.id, req.body, { actorUserId: req.user?.Id });
     res.status(200).json(client);
   } catch (error) {
     next(error);

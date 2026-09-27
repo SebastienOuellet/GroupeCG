@@ -1,6 +1,7 @@
 import db from "../../../models/index.js";
 import { logger } from "../../config/logger.js";
-import { CONSENT_ACTIONS, PERSON_TYPES } from "./consent.constants.js";
+import { CONSENT_ACTIONS, PERSON_TYPES, SUPPRESSION_REASONS } from "./consent.constants.js";
+import { ConflictError } from "../../errors/Errors.js";
 import { CHANNELS } from "../notification/notification.constants.js";
 
 const { ConsentLog, SuppressedContact, Client, Tenant, Sequelize } = db;
@@ -201,4 +202,96 @@ export const unsuppressContact = async ({ channel, address, method, actorUserId,
 
   logger.info(`Contact retiré de la liste de suppression | ${channel}:${normalized}`);
   return { unsuppressed: true, address: normalized };
+};
+
+/* ------------------------------------------------------------------ */
+/* Désinscriptions : verrouillage des contacts (Loi 25 / LCAP)          */
+/* ------------------------------------------------------------------ */
+
+const CHANNEL_LABELS = {
+  [CHANNELS.SMS]: { contact: "numéro de téléphone", notices: "avis par SMS", howToResubscribe: "en répondant OUI (ou START) par SMS" },
+  [CHANNELS.EMAIL]: { contact: "courriel", notices: "avis par courriel", howToResubscribe: null }
+};
+
+const REASON_LABELS = {
+  [SUPPRESSION_REASONS.STOP_KEYWORD]: "réponse ARRÊT par SMS",
+  [SUPPRESSION_REASONS.UNSUBSCRIBE_LINK]: "lien de désabonnement",
+  [SUPPRESSION_REASONS.MANUAL]: "retrait manuel",
+  [SUPPRESSION_REASONS.COMPLAINT]: "plainte"
+};
+
+/**
+ * Désinscriptions de plusieurs personnes (Clients ou Tenants) en une requête.
+ * Retourne une fonction person → { sms, email } où chaque canal vaut
+ * { Reason, ReasonLabel, createdAt } ou null.
+ */
+export const loadSuppressions = async (persons) => {
+  const keys = [];
+  for (const person of persons) {
+    for (const { channel, addressField } of CONSENT_FIELDS) {
+      const address = normalizeAddress(channel, person?.[addressField]);
+      if (address) keys.push({ Channel: channel, Address: address });
+    }
+  }
+  const rows = keys.length ? await SuppressedContact.findAll({ where: { [Op.or]: keys } }) : [];
+  const byKey = new Map(rows.map((row) => [`${row.Channel}:${row.Address}`, row]));
+
+  return (person) => {
+    const result = {};
+    for (const { channel, addressField } of CONSENT_FIELDS) {
+      const row = byKey.get(`${channel}:${normalizeAddress(channel, person?.[addressField])}`);
+      result[channel] = row ? { Reason: row.Reason, ReasonLabel: REASON_LABELS[row.Reason] ?? row.Reason, createdAt: row.createdAt } : null;
+    }
+    return result;
+  };
+};
+
+/** Sérialise des personnes en ajoutant `Suppressions` (affichage des désinscriptions). */
+export const withSuppressions = async (persons) => {
+  const lookup = await loadSuppressions(persons);
+  return persons.map((person) => ({ ...(person.toJSON ? person.toJSON() : person), Suppressions: lookup(person) }));
+};
+
+/**
+ * Une personne désinscrite d'un canal ne peut pas y être réabonnée par un
+ * tiers (admin ou propriétaire) : ni cocher de nouveau le consentement, ni
+ * remplacer le numéro/courriel (ce qui contournerait la désinscription).
+ * Seule la personne peut se réabonner (START par SMS) ; les autres champs
+ * et l'autre canal restent modifiables.
+ *
+ * @param {object} person  Instance actuelle (Client ou Tenant)
+ * @param {object} changes Champs reçus
+ */
+export const assertSuppressionRespected = async (person, changes) => {
+  const lookup = await loadSuppressions([person]);
+  const suppressions = lookup(person);
+  for (const { field, channel, addressField } of CONSENT_FIELDS) {
+    if (!suppressions[channel]) continue;
+    const labels = CHANNEL_LABELS[channel];
+    const how = labels.howToResubscribe ? `, ${labels.howToResubscribe}` : "";
+    const reason = ` Cette personne s'est désinscrite des ${labels.notices} (${suppressions[channel].ReasonLabel}) ; seule elle peut se réabonner${how}.`;
+
+    const addressChanged = changes[addressField] !== undefined &&
+      normalizeAddress(channel, changes[addressField]) !== normalizeAddress(channel, person[addressField]);
+    if (addressChanged) {
+      throw new ConflictError(`Le ${labels.contact} ne peut pas être modifié.${reason}`);
+    }
+    if (changes[field] === true && !person[field]) {
+      throw new ConflictError(`Les ${labels.notices} ne peuvent pas être réactivés.${reason}`);
+    }
+  }
+};
+
+/**
+ * Nouvelle personne, ou nouveau numéro/courriel : si l'adresse figure déjà dans
+ * la liste de désinscription, le consentement de ce canal est forcé à faux.
+ * Modifie `data` en place.
+ */
+export const applySuppressionsToConsents = async (data) => {
+  const lookup = await loadSuppressions([data]);
+  const suppressions = lookup(data);
+  for (const { field, channel } of CONSENT_FIELDS) {
+    if (suppressions[channel]) data[field] = false;
+  }
+  return data;
 };

@@ -5,10 +5,13 @@ import { PortalApiService } from "../../../core/portal/portal-api.service";
 import { PortalSessionService } from "../../../core/portal/portal-session.service";
 import { PortalMe } from "../../../core/models/portal.model";
 import { Tenant } from "../../../core/models/domain.model";
+import { NoticeChannel, Suppression, suppressionNote } from "../../../core/models/consent";
+import { ContactForm } from "../../../shared/contact-form/contact-form";
+import { NoticeStatus } from "../../../shared/notice-status/notice-status";
 
 @Component({
   selector: "app-portal-manage",
-  imports: [FormsModule],
+  imports: [FormsModule, ContactForm, NoticeStatus],
   templateUrl: "./portal-manage.html",
   styleUrl: "./portal-manage.scss"
 })
@@ -21,9 +24,8 @@ export class PortalManage implements OnInit {
   readonly error = signal<string | null>(null);
   readonly info = signal<string | null>(null);
   readonly saving = signal(false);
-  readonly showTenantForm = signal(false);
-
-  tenantForm: Partial<Tenant> = {};
+  /** Personne en cours d'ajout (sans Id) ou de modification. */
+  readonly tenantEditor = signal<Partial<Tenant> | null>(null);
   preferences = { SmsConsent: true, EmailConsent: true };
 
   async ngOnInit(): Promise<void> {
@@ -45,22 +47,35 @@ export class PortalManage implements OnInit {
   }
 
   openTenantForm(): void {
-    this.tenantForm = { SmsConsent: true, EmailConsent: true };
-    this.showTenantForm.set(true);
+    this.tenantEditor.set({ SmsConsent: true, EmailConsent: true });
   }
 
-  async saveTenant(): Promise<void> {
+  editTenant(tenant: Tenant): void {
+    this.tenantEditor.set({ ...tenant });
+  }
+
+  async saveTenant(fields: Partial<Tenant>): Promise<void> {
+    const editing = this.tenantEditor();
     this.saving.set(true);
     this.error.set(null);
     try {
-      await this.portalApi.post("tenants", this.tenantForm);
-      this.showTenantForm.set(false);
+      if (editing?.Id) {
+        await this.portalApi.put(`tenants/${editing.Id}`, fields);
+      } else {
+        await this.portalApi.post("tenants", fields);
+      }
+      this.tenantEditor.set(null);
       await this.load();
     } catch (e) {
       this.error.set((e as Error).message);
     } finally {
       this.saving.set(false);
     }
+  }
+
+  /** `self` : la personne est le client connecté (peut se réabonner aux courriels). */
+  note(channel: NoticeChannel, suppression: Suppression, self: boolean): string {
+    return suppressionNote(channel, suppression, self);
   }
 
   async removeTenant(tenant: Tenant): Promise<void> {
@@ -80,6 +95,7 @@ export class PortalManage implements OnInit {
     try {
       await this.portalApi.put("preferences", this.preferences);
       this.info.set("Préférences mises à jour.");
+      await this.load();
     } catch (e) {
       this.error.set((e as Error).message);
     } finally {

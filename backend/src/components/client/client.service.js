@@ -1,6 +1,9 @@
 import db from "../../../models/index.js";
 import { NotFoundError } from "../../errors/Errors.js";
 import { logger } from "../../config/logger.js";
+import * as consentService from "../consent/consent.service.js";
+import { validateContactFields } from "../consent/contact.validation.js";
+import { CONSENT_METHODS, PERSON_TYPES } from "../consent/consent.constants.js";
 
 const { Client, ServiceAddress, Contract, sequelize } = db;
 
@@ -33,7 +36,9 @@ export const getClientById = async (id) => {
   if (!client) {
     throw new NotFoundError("Client introuvable.");
   }
-  return client;
+  // `Suppressions` : désinscriptions SMS/courriel du client (verrouillage à l'écran)
+  const [withSuppressions] = await consentService.withSuppressions([client]);
+  return withSuppressions;
 };
 
 /**
@@ -43,13 +48,16 @@ export const getClientById = async (id) => {
  */
 export const createClient = async (payload) => {
   const { ServiceAddress: addressInfo, ...clientInfo } = payload;
+  validateContactFields(clientInfo);
 
   return sequelize.transaction(async (transaction) => {
     const maxNumber = await Client.max("ClientNumber", { transaction });
     const clientNumber = Math.max(maxNumber || 0, CLIENT_NUMBER_SEED) + 1;
 
+    const { Id, Suppressions, ...fields } = clientInfo;
+    await consentService.applySuppressionsToConsents(fields);
     const client = await Client.create(
-      { ...clientInfo, ClientNumber: clientNumber },
+      { ...fields, ClientNumber: clientNumber },
       { transaction }
     );
 
@@ -67,16 +75,25 @@ export const createClient = async (payload) => {
   });
 };
 
-export const updateClient = async (id, clientInfo) => {
+/**
+ * Un canal dont le client s'est désinscrit reste verrouillé (numéro/courriel et
+ * consentement) ; chaque changement de consentement est journalisé (Loi 25).
+ */
+export const updateClient = async (id, clientInfo, { actorUserId } = {}) => {
   const client = await Client.findByPk(id);
   if (!client) {
     throw new NotFoundError("Client introuvable.");
   }
 
   // Le numéro de client est immuable
-  const { ClientNumber, Id, ...updatable } = clientInfo;
+  const { ClientNumber, Id, Suppressions, ServiceAddresses, Contracts, ...updatable } = clientInfo;
+  validateContactFields(updatable);
+  await consentService.assertSuppressionRespected(client, updatable);
+  const previous = { SmsConsent: client.SmsConsent, EmailConsent: client.EmailConsent };
   Object.assign(client, updatable);
+  await consentService.applySuppressionsToConsents(client);
   await client.save();
+  await consentService.logPersonConsentChanges(PERSON_TYPES.CLIENT, client, previous, { method: CONSENT_METHODS.ADMIN, actorUserId });
   return client;
 };
 

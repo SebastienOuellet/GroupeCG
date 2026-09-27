@@ -1,4 +1,5 @@
 import { Contract, Tenant } from "./domain.model";
+import { Suppressions } from "./consent";
 
 export interface PortalLoginRequest {
   reference: string;
@@ -19,6 +20,7 @@ export interface PortalMe {
     Phone: string | null;
     SmsConsent: boolean;
     EmailConsent: boolean;
+    Suppressions: Suppressions;
   };
   serviceAddress: {
     CivicNumber: string;

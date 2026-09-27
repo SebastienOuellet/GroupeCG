@@ -4,6 +4,7 @@ import { ClientService } from "../../../../core/services/client.service";
 import { ServiceAddressService } from "../../../../core/services/service-address.service";
 import { Client, ServiceAddress } from "../../../../core/models/domain.model";
 import { AddressFields } from "../../../../shared/address-fields/address-fields";
+import { contactErrors, emailError, phoneError } from "../../../../core/utils/contact-validation";
 
 export interface QuickCreateResult {
   client: Client;
@@ -38,6 +39,8 @@ export class ClientQuickCreate implements OnInit, AfterViewInit {
 
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
+  readonly emailError = emailError;
+  readonly phoneError = phoneError;
 
   private result: QuickCreateResult | null = null;
 
@@ -96,6 +99,11 @@ export class ClientQuickCreate implements OnInit, AfterViewInit {
       const { FirstName, LastName, CompanyName } = this.clientForm;
       if (![FirstName, LastName, CompanyName].some((value) => value?.trim())) {
         this.error.set("Indiquez au moins un nom ou une entreprise.");
+        return;
+      }
+      const invalid = contactErrors(this.clientForm);
+      if (invalid) {
+        this.error.set(invalid);
         return;
       }
     }

@@ -1,4 +1,5 @@
 import { DrivewaySurface } from "./driveway-surface";
+import { Suppressions } from "./consent";
 
 export interface Client {
   Id: number;
@@ -13,6 +14,8 @@ export interface Client {
   VoiceConsent: boolean;
   Notes: string | null;
   IsActive: boolean;
+  /** Désinscriptions SMS/courriel (fiche client). */
+  Suppressions?: Suppressions;
   ServiceAddresses?: ServiceAddress[];
   Contracts?: Contract[];
 }
@@ -105,6 +108,8 @@ export interface Tenant {
   VoiceConsent: boolean;
   ConsentSource: string;
   IsActive: boolean;
+  /** Désinscriptions SMS/courriel : canal verrouillé à l'écran. */
+  Suppressions?: Suppressions;
 }
 
 export interface RolloverResult {

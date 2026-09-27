@@ -4,6 +4,10 @@ import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { ClientService } from "../../../core/services/client.service";
 import { ServiceAddressService } from "../../../core/services/service-address.service";
 import { TenantService } from "../../../core/services/tenant.service";
+import { contactValue, NoticeChannel, suppressionNote, suppressionOf } from "../../../core/models/consent";
+import { contactErrors, emailError, phoneError } from "../../../core/utils/contact-validation";
+import { ContactForm } from "../../../shared/contact-form/contact-form";
+import { NoticeStatus } from "../../../shared/notice-status/notice-status";
 import { Client, ContractStatus, ServiceAddress, Tenant } from "../../../core/models/domain.model";
 import { GoogleMapsService, LatLng } from "../../../core/services/google-maps.service";
 import { AddressFields } from "../../../shared/address-fields/address-fields";
@@ -20,7 +24,7 @@ const LOCATION_FIELDS = ["CivicNumber", "Street", "City", "PostalCode"] as const
 
 @Component({
   selector: "app-client-detail",
-  imports: [FormsModule, RouterLink, AddressFields, StreetView, SurfaceBadge],
+  imports: [FormsModule, RouterLink, AddressFields, StreetView, SurfaceBadge, ContactForm, NoticeStatus],
   styleUrl: "./client-detail.scss",
   templateUrl: "./client-detail.html"
 })
@@ -37,7 +41,11 @@ export class ClientDetail implements OnInit {
   readonly error = signal<string | null>(null);
   readonly saving = signal(false);
   readonly showAddressForm = signal(false);
-  readonly tenantFormAddressId = signal<number | null>(null);
+  /** Formulaire de locataire ouvert : ajout (tenant sans Id) ou modification. */
+  readonly tenantEditor = signal<{ addressId: number; tenant: Partial<Tenant> } | null>(null);
+  readonly channels: NoticeChannel[] = ["sms", "email"];
+  readonly emailError = emailError;
+  readonly phoneError = phoneError;
   /** Une seule vue Street View ouverte à la fois : chaque chargement est facturé par Google. */
   readonly streetViewAddressId = signal<number | null>(null);
   readonly editingAddressId = signal<number | null>(null);
@@ -53,7 +61,6 @@ export class ClientDetail implements OnInit {
   clientForm: Partial<Client> = {};
   addressForm: Partial<ServiceAddress> = {};
   editForm: Partial<ServiceAddress> = {};
-  tenantForm: Partial<Tenant> = {};
 
   private clientId!: number;
 
@@ -92,6 +99,11 @@ export class ClientDetail implements OnInit {
   }
 
   async saveClient(): Promise<void> {
+    const invalid = contactErrors(this.clientForm);
+    if (invalid) {
+      this.error.set(invalid);
+      return;
+    }
     this.saving.set(true);
     this.error.set(null);
     try {
@@ -136,7 +148,7 @@ export class ClientDetail implements OnInit {
   openAddressEdit(address: ServiceAddress): void {
     this.editForm = { ...address };
     this.streetViewAddressId.set(null);
-    this.tenantFormAddressId.set(null);
+    this.tenantEditor.set(null);
     this.editingAddressId.set(address.Id);
   }
 
@@ -210,22 +222,45 @@ export class ClientDetail implements OnInit {
   }
 
   openTenantForm(addressId: number): void {
-    this.tenantForm = { ServiceAddressId: addressId, SmsConsent: true, EmailConsent: true };
-    this.tenantFormAddressId.set(addressId);
+    this.tenantEditor.set({ addressId, tenant: { ServiceAddressId: addressId, SmsConsent: true, EmailConsent: true } });
   }
 
-  async saveTenant(): Promise<void> {
+  editTenant(tenant: Tenant): void {
+    this.tenantEditor.set({ addressId: tenant.ServiceAddressId, tenant: { ...tenant } });
+  }
+
+  async saveTenant(fields: Partial<Tenant>): Promise<void> {
+    const editor = this.tenantEditor();
+    if (!editor) return;
     this.saving.set(true);
     this.error.set(null);
     try {
-      await this.tenantService.createTenant(this.tenantForm);
-      this.tenantFormAddressId.set(null);
+      if (editor.tenant.Id) {
+        await this.tenantService.updateTenant(editor.tenant.Id, fields);
+      } else {
+        await this.tenantService.createTenant({ ...fields, ServiceAddressId: editor.addressId });
+      }
+      this.tenantEditor.set(null);
       await this.load();
     } catch (e) {
       this.error.set((e as Error).message);
     } finally {
       this.saving.set(false);
     }
+  }
+
+  /* --- Client lui-même : canal désinscrit verrouillé --- */
+  clientLocked(channel: NoticeChannel): boolean {
+    return !!suppressionOf(this.client() ?? {}, channel);
+  }
+
+  clientHasContact(channel: NoticeChannel): boolean {
+    return !!contactValue(this.clientForm, channel);
+  }
+
+  clientNote(channel: NoticeChannel): string | null {
+    const suppression = suppressionOf(this.client() ?? {}, channel);
+    return suppression ? suppressionNote(channel, suppression) : null;
   }
 
   async removeTenant(tenant: Tenant): Promise<void> {

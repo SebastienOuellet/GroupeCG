@@ -1,0 +1,51 @@
+<form class="contact-form" (ngSubmit)="submit()">
+  @if (heading()) {
+    <h3 class="contact-form__title">{{ heading() }}</h3>
+  }
+  <div class="form-grid">
+    <label class="form-field">
+      <span>Prénom</span>
+      <input name="FirstName" [(ngModel)]="form.FirstName" autocomplete="off" />
+    </label>
+    <label class="form-field">
+      <span>Nom</span>
+      <input name="LastName" [(ngModel)]="form.LastName" autocomplete="off" />
+    </label>
+    <label class="form-field">
+      <span>Téléphone</span>
+      <input type="tel" inputmode="tel" name="Phone" [(ngModel)]="form.Phone" [disabled]="locked('sms')" [class.is-invalid]="!!phoneError(form.Phone)" placeholder="819 555-1234" autocomplete="off" />
+      @if (phoneError(form.Phone); as message) {
+        <small class="field-error">{{ message }}</small>
+      }
+    </label>
+    <label class="form-field">
+      <span>Courriel</span>
+      <input type="email" inputmode="email" name="Email" [(ngModel)]="form.Email" [disabled]="locked('email')" [class.is-invalid]="!!emailError(form.Email)" placeholder="nom@domaine.com" autocomplete="off" />
+      @if (emailError(form.Email); as message) {
+        <small class="field-error">{{ message }}</small>
+      }
+    </label>
+  </div>
+
+  <div class="checkbox-row">
+    <label class="form-field form-field--checkbox">
+      <input type="checkbox" name="SmsConsent" [(ngModel)]="form.SmsConsent" [disabled]="locked('sms') || !hasContact('sms')" />
+      <span>Avis par SMS{{ !hasContact("sms") && !locked("sms") ? " (ajoutez un numéro)" : "" }}</span>
+    </label>
+    <label class="form-field form-field--checkbox">
+      <input type="checkbox" name="EmailConsent" [(ngModel)]="form.EmailConsent" [disabled]="locked('email') || !hasContact('email')" />
+      <span>Avis par courriel{{ !hasContact("email") && !locked("email") ? " (ajoutez un courriel)" : "" }}</span>
+    </label>
+  </div>
+
+  @for (channel of ["sms", "email"]; track channel) {
+    @if (note($any(channel)); as text) {
+      <p class="contact-form__locked">{{ text }}</p>
+    }
+  }
+
+  <div class="form-actions">
+    <button type="submit" class="btn-primary" [disabled]="saving() || !!contactErrors(form)">{{ submitLabel() }}</button>
+    <button type="button" class="btn-outline" (click)="cancelled.emit()">Annuler</button>
+  </div>
+</form>

@@ -3,6 +3,7 @@ import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { ClientService } from "../../../core/services/client.service";
 import { Client } from "../../../core/models/domain.model";
+import { contactErrors, emailError, phoneError } from "../../../core/utils/contact-validation";
 
 @Component({
   selector: "app-clients-list",
@@ -16,6 +17,8 @@ export class ClientsList implements OnInit {
   readonly clients = signal<Client[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly emailError = emailError;
+  readonly phoneError = phoneError;
   readonly showForm = signal(false);
   readonly saving = signal(false);
 
@@ -44,6 +47,11 @@ export class ClientsList implements OnInit {
   }
 
   async save(): Promise<void> {
+    const invalid = contactErrors(this.form);
+    if (invalid) {
+      this.error.set(invalid);
+      return;
+    }
     this.saving.set(true);
     this.error.set(null);
     try {

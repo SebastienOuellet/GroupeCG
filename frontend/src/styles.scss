@@ -305,6 +305,22 @@ a.btn-outline {
   font-size: 0.875rem;
 }
 
+/* Erreur de saisie sous un champ */
+.field-error {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #c0392b;
+}
+
+:where(input.is-invalid) {
+  border-color: #c0392b;
+
+  &:focus {
+    border-color: #c0392b;
+    box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.15);
+  }
+}
+
 /* Libellé de champ avec action secondaire (ex. « + Nouveau client ») */
 .form-field__label-row {
   display: flex;

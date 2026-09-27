@@ -26,11 +26,17 @@
         </label>
         <label class="form-field">
           <span>Courriel</span>
-          <input type="email" name="Email" [(ngModel)]="form.Email" />
+          <input type="email" name="Email" [(ngModel)]="form.Email" [class.is-invalid]="!!emailError(form.Email)" placeholder="nom@domaine.com" />
+            @if (emailError(form.Email); as message) {
+              <small class="field-error">{{ message }}</small>
+            }
         </label>
         <label class="form-field">
           <span>Téléphone</span>
-          <input type="tel" name="Phone" [(ngModel)]="form.Phone" placeholder="+14185551234" />
+          <input type="tel" name="Phone" [(ngModel)]="form.Phone" [class.is-invalid]="!!phoneError(form.Phone)" placeholder="819 555-1234" />
+            @if (phoneError(form.Phone); as message) {
+              <small class="field-error">{{ message }}</small>
+            }
         </label>
         <label class="form-field">
           <span>Notes</span>

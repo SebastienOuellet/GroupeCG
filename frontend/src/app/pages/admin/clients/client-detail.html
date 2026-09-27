@@ -26,11 +26,17 @@
         </label>
         <label class="form-field">
           <span>Courriel</span>
-          <input type="email" name="Email" [(ngModel)]="clientForm.Email" />
+          <input type="email" name="Email" [(ngModel)]="clientForm.Email" [disabled]="clientLocked('email')" [class.is-invalid]="!!emailError(clientForm.Email)" placeholder="nom@domaine.com" />
+          @if (emailError(clientForm.Email); as message) {
+            <small class="field-error">{{ message }}</small>
+          }
         </label>
         <label class="form-field">
           <span>Téléphone</span>
-          <input type="tel" name="Phone" [(ngModel)]="clientForm.Phone" />
+          <input type="tel" name="Phone" [(ngModel)]="clientForm.Phone" [disabled]="clientLocked('sms')" [class.is-invalid]="!!phoneError(clientForm.Phone)" placeholder="819 555-1234" />
+          @if (phoneError(clientForm.Phone); as message) {
+            <small class="field-error">{{ message }}</small>
+          }
         </label>
         <label class="form-field">
           <span>Notes</span>
@@ -39,14 +45,19 @@
       </div>
       <div class="checkbox-row">
         <label class="form-field form-field--checkbox">
-          <input type="checkbox" name="SmsConsent" [(ngModel)]="clientForm.SmsConsent" />
-          <span>Consentement SMS</span>
+          <input type="checkbox" name="SmsConsent" [(ngModel)]="clientForm.SmsConsent" [disabled]="clientLocked('sms') || !clientHasContact('sms')" />
+          <span>Avis par SMS{{ !clientHasContact("sms") && !clientLocked("sms") ? " (aucun numéro)" : "" }}</span>
         </label>
         <label class="form-field form-field--checkbox">
-          <input type="checkbox" name="EmailConsent" [(ngModel)]="clientForm.EmailConsent" />
-          <span>Consentement courriel</span>
+          <input type="checkbox" name="EmailConsent" [(ngModel)]="clientForm.EmailConsent" [disabled]="clientLocked('email') || !clientHasContact('email')" />
+          <span>Avis par courriel{{ !clientHasContact("email") && !clientLocked("email") ? " (aucun courriel)" : "" }}</span>
         </label>
       </div>
+      @for (channel of channels; track channel) {
+        @if (clientNote(channel); as note) {
+          <p class="locked-note">{{ note }}</p>
+        }
+      }
       <button type="submit" class="btn-primary" [disabled]="saving()">Enregistrer</button>
     </form>
   </div>
@@ -134,31 +145,17 @@
           }
         }
 
-        @if (tenantFormAddressId() === address.Id) {
-          <form (ngSubmit)="saveTenant()" style="margin: 0.75rem 0">
-            <div class="form-grid">
-              <label class="form-field">
-                <span>Prénom</span>
-                <input name="TFirstName" [(ngModel)]="tenantForm.FirstName" />
-              </label>
-              <label class="form-field">
-                <span>Nom</span>
-                <input name="TLastName" [(ngModel)]="tenantForm.LastName" />
-              </label>
-              <label class="form-field">
-                <span>Téléphone</span>
-                <input type="tel" name="TPhone" [(ngModel)]="tenantForm.Phone" />
-              </label>
-              <label class="form-field">
-                <span>Courriel</span>
-                <input type="email" name="TEmail" [(ngModel)]="tenantForm.Email" />
-              </label>
-            </div>
-            <div class="form-actions">
-              <button type="submit" class="btn-primary" [disabled]="saving()">Ajouter</button>
-              <button type="button" class="btn-outline" (click)="tenantFormAddressId.set(null)">Annuler</button>
-            </div>
-          </form>
+        @if (tenantEditor(); as editor) {
+          @if (editor.addressId === address.Id) {
+            <app-contact-form
+              [value]="editor.tenant"
+              [heading]="editor.tenant.Id ? 'Modifier ' + tenantName($any(editor.tenant)) : 'Nouveau locataire'"
+              [submitLabel]="editor.tenant.Id ? 'Enregistrer' : 'Ajouter'"
+              [saving]="saving()"
+              (submitted)="saveTenant($event)"
+              (cancelled)="tenantEditor.set(null)"
+            />
+          }
         }
 
         @if ((tenantsByAddress()[address.Id] || []).length > 0) {
@@ -168,8 +165,8 @@
                 <th>Locataire</th>
                 <th>Téléphone</th>
                 <th>Courriel</th>
-                <th>SMS</th>
-                <th>Courriel OK</th>
+                <th>Avis SMS</th>
+                <th>Avis courriel</th>
                 <th></th>
               </tr>
             </thead>
@@ -179,9 +176,10 @@
                   <td data-label="Locataire">{{ tenantName(tenant) }}</td>
                   <td data-label="Téléphone">{{ tenant.Phone || "—" }}</td>
                   <td data-label="Courriel">{{ tenant.Email || "—" }}</td>
-                  <td data-label="SMS">{{ tenant.SmsConsent ? "✓" : "✗" }}</td>
-                  <td data-label="Courriel OK">{{ tenant.EmailConsent ? "✓" : "✗" }}</td>
+                  <td data-label="Avis SMS"><app-notice-status [person]="tenant" channel="sms" /></td>
+                  <td data-label="Avis courriel"><app-notice-status [person]="tenant" channel="email" /></td>
                   <td class="cell-actions">
+                    <button type="button" class="btn-outline" (click)="editTenant(tenant)">Modifier</button>
                     <button type="button" class="btn-danger" (click)="removeTenant(tenant)">Retirer</button>
                   </td>
                 </tr>
