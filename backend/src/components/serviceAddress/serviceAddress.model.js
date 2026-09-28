@@ -1,5 +1,5 @@
 import { DataTypes } from "sequelize";
-import { DRIVEWAY_SURFACES } from "./serviceAddress.constants.js";
+import { DRIVEWAY_SURFACES, LOCATION_SOURCES } from "./serviceAddress.constants.js";
 
 export default (sequelize) => {
   const ServiceAddress = sequelize.define(
@@ -34,7 +34,14 @@ export default (sequelize) => {
           this.setDataValue("PostalCode", String(value || "").replace(/\s/g, "").toUpperCase());
         }
       },
-      // Coordonnées Google (autocomplete) : Street View de l'entrée et futur tri de route
+      /** Identifiant Google du lieu : seule donnée Google stockable indéfiniment (sert à rafraîchir les coordonnées). */
+      PlaceId: {
+        type: DataTypes.STRING(255),
+        set(value) {
+          this.setDataValue("PlaceId", value || null);
+        }
+      },
+      // Coordonnées : cache Google daté (LocationUpdatedAt) ou pin corrigé à la main (LocationSource)
       Latitude: {
         type: DataTypes.DECIMAL(9, 6),
         validate: { min: -90, max: 90 }
@@ -42,6 +49,13 @@ export default (sequelize) => {
       Longitude: {
         type: DataTypes.DECIMAL(9, 6),
         validate: { min: -180, max: 180 }
+      },
+      LocationSource: {
+        type: DataTypes.STRING(20),
+        validate: { isIn: [LOCATION_SOURCES] }
+      },
+      LocationUpdatedAt: {
+        type: DataTypes.DATE
       },
       DrivewaySurface: {
         type: DataTypes.STRING(20),

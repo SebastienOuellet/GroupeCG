@@ -1,4 +1,5 @@
 import { DataTypes } from "sequelize";
+import { ROUTE_SEQUENCE_SOURCES } from "./route.constants.js";
 
 export default (sequelize) => {
   const Route = sequelize.define(
@@ -30,6 +31,21 @@ export default (sequelize) => {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: true
+      },
+      /** Point d'attache du véhicule { label, placeId, latitude, longitude, locationUpdatedAt }. null = dépôt (Paramètres › Routes). Départ et retour. */
+      BaseLocation: {
+        type: DataTypes.JSONB
+      },
+      /** Traçabilité de l'ordre de passage en vigueur. */
+      SequenceSource: {
+        type: DataTypes.STRING(20),
+        validate: { isIn: [ROUTE_SEQUENCE_SOURCES] }
+      },
+      SequenceUpdatedAt: {
+        type: DataTypes.DATE
+      },
+      SequenceUpdatedByUserId: {
+        type: DataTypes.INTEGER
       }
     },
     {
@@ -41,6 +57,7 @@ export default (sequelize) => {
 
   Route.associate = (db) => {
     Route.belongsTo(db.User, { foreignKey: "OperatorUserId", as: "Operator" });
+    Route.belongsTo(db.User, { foreignKey: "SequenceUpdatedByUserId", as: "SequenceUpdatedBy" });
     Route.hasMany(db.Contract, { foreignKey: "RouteId", as: "Contracts" });
     Route.hasMany(db.RouteRun, { foreignKey: "RouteId", as: "Runs" });
   };

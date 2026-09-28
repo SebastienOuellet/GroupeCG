@@ -126,7 +126,8 @@ export const createContract = async (contractInfo) => {
     const reference = await buildReference(SeasonStartYear, client.ClientNumber, transaction);
     const contractNumber = await nextContractNumber(transaction);
 
-    const { Id, Items, RenewalNoticeSentAt, ...fields } = contractInfo;
+    // RouteSequence : seulement via PUT /route/:id/sequence ; un nouveau contrat arrive « à placer »
+    const { Id, Items, RenewalNoticeSentAt, RouteSequence, ...fields } = contractInfo;
     const contract = await Contract.create(
       {
         ...fields,
@@ -175,9 +176,15 @@ export const updateContract = async (id, contractInfo) => {
     }
 
     // Référence, numéro et rattachements structurants sont immuables ; Price est dérivé des lignes
-    const { Id, Reference, ContractNumber, ClientId, SeasonStartYear, Price, Items, invoiceAction: _action, ...updatable } = contractInfo;
+    const { Id, Reference, ContractNumber, ClientId, SeasonStartYear, Price, Items, RouteSequence, invoiceAction: _action, ...updatable } = contractInfo;
     const previousStatus = contract.Status;
+    const previousRouteId = contract.RouteId;
     Object.assign(contract, updatable);
+    // Changement de route : la position n'a plus de sens, le contrat est « à placer » dans la nouvelle
+    const routeKey = (value) => (value == null || value === "" ? null : Number(value));
+    if (routeKey(contract.RouteId) !== routeKey(previousRouteId)) {
+      contract.RouteSequence = null;
+    }
 
     let itemsChanged = false;
     if (Items !== undefined) {
@@ -291,6 +298,7 @@ export const rolloverSeason = async ({ fromSeasonYear }) => {
           ClientId: source.ClientId,
           ServiceAddressId: source.ServiceAddressId,
           RouteId: source.RouteId,
+          RouteSequence: source.RouteSequence,
           SeasonStartYear: targetYear,
           StartDate: shiftDateOneYear(source.StartDate),
           EndDate: shiftDateOneYear(source.EndDate),

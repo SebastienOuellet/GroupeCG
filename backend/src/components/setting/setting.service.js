@@ -5,6 +5,7 @@ import { SETTING_KEYS } from "./setting.constants.js";
 import { CONTRACT_TERMS_RULES, DEFAULT_CONTRACT_TERMS } from "../../documents/contractTerms.js";
 import { buildContractPdf } from "../../documents/contractPdf.js";
 import { computeTotals } from "../invoice/invoice.money.js";
+import { normalizeNamedLocation } from "../../shared/location.js";
 
 const { Setting } = db;
 
@@ -114,4 +115,28 @@ export const buildContractTermsPreview = async (input) => {
     dueDate: toDateOnly(due),
     watermark: "EXEMPLE"
   });
+};
+
+/* ------------------------------------------------------------------ */
+/* Dépôt des routes                                                    */
+/* ------------------------------------------------------------------ */
+
+/** Dépôt par défaut (départ et retour des routes sans point d'attache propre). `value` null = pas encore configuré. */
+export const getRouteDepot = async () => {
+  const row = await Setting.findOne({ where: { Key: SETTING_KEYS.ROUTE_DEPOT } });
+  return { value: row?.Value ?? null, updatedAt: row?.updatedAt ?? null };
+};
+
+export const updateRouteDepot = async (input, userId = null) => {
+  const value = normalizeNamedLocation(input, "Dépôt");
+  const [row] = await Setting.findOrCreate({
+    where: { Key: SETTING_KEYS.ROUTE_DEPOT },
+    defaults: { Value: value, UpdatedByUserId: userId }
+  });
+  row.Value = value;
+  row.UpdatedByUserId = userId;
+  row.changed("Value", true);
+  await row.save();
+  logger.info(`Dépôt des routes modifié | par utilisateur #${userId ?? "?"} | ${value.label}`);
+  return getRouteDepot();
 };

@@ -33,10 +33,28 @@ const previewContractTerms = async (req, res, next) => {
   }
 };
 
+const getRouteDepot = async (req, res, next) => {
+  try {
+    res.status(200).json(await settingService.getRouteDepot());
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateRouteDepot = async (req, res, next) => {
+  try {
+    res.status(200).json(await settingService.updateRouteDepot(req.body, req.user?.Id ?? null));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const settingController = {
   routes: [
     { method: "GET", url: "/contract-terms", middleware: [adminOnly, getContractTerms], authRequired: true },
     { method: "PUT", url: "/contract-terms", middleware: [adminOnly, updateContractTerms], authRequired: true },
-    { method: "POST", url: "/contract-terms/preview", middleware: [adminOnly, previewContractTerms], authRequired: true }
+    { method: "POST", url: "/contract-terms/preview", middleware: [adminOnly, previewContractTerms], authRequired: true },
+    { method: "GET", url: "/route-depot", middleware: [adminOnly, getRouteDepot], authRequired: true },
+    { method: "PUT", url: "/route-depot", middleware: [adminOnly, updateRouteDepot], authRequired: true }
   ]
 };

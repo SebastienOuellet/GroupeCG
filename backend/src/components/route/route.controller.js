@@ -34,6 +34,16 @@ const getRouteContracts = async (req, res, next) => {
   }
 };
 
+/** Corps : { contractIds: [..] } dans l'ordre de passage voulu. */
+const updateRouteSequence = async (req, res, next) => {
+  try {
+    const result = await routeService.updateRouteSequence(req.params.id, req.body?.contractIds, req.user?.Id);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createRoute = async (req, res, next) => {
   try {
     const route = await routeService.createRoute(req.body);
@@ -67,6 +77,7 @@ export const routeController = {
     { method: "GET", url: "/:id", middleware: [readAccess, getRouteById], authRequired: true },
     { method: "GET", url: "/:id/contracts", middleware: [readAccess, getRouteContracts], authRequired: true },
     { method: "POST", url: "", middleware: [adminOnly, createRoute], authRequired: true },
+    { method: "PUT", url: "/:id/sequence", middleware: [adminOnly, updateRouteSequence], authRequired: true },
     { method: "PUT", url: "/:id", middleware: [adminOnly, updateRoute], authRequired: true },
     { method: "DELETE", url: "/:id", middleware: [adminOnly, deactivateRoute], authRequired: true }
   ]

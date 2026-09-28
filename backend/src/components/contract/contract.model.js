@@ -32,6 +32,10 @@ export default (sequelize) => {
       RouteId: {
         type: DataTypes.INTEGER
       },
+      /** Position dans la route (1, 2, 3…). null = pas encore placé : affiché à la fin. Modifié seulement via PUT /route/:id/sequence. */
+      RouteSequence: {
+        type: DataTypes.INTEGER
+      },
       SeasonStartYear: {
         type: DataTypes.INTEGER,
         allowNull: false

@@ -7,6 +7,7 @@ import { CONTRACT_STATUS } from "../contract/contract.constants.js";
 import { BATCH_TYPES, TARGET_TYPES } from "../notification/notification.constants.js";
 import { TEMPLATE_TYPES } from "../template/template.model.js";
 import { USER_ROLES } from "../user/user.constants.js";
+import { ROUTE_CONTRACT_ORDER } from "../route/route.service.js";
 
 const { Route, RouteRun, RouteRunStop, Contract, Client, ServiceAddress, NotificationTemplate, sequelize } = db;
 
@@ -33,6 +34,9 @@ const stopInclude = [
   }
 ];
 
+/** Arrêts dans l'ordre figé au démarrage. */
+const stopOrder = [[{ model: RouteRunStop, as: "Stops" }, "Sequence", "ASC"]];
+
 /** Un opérateur ne peut agir que sur SES routes; l'admin peut tout faire. */
 const assertRouteAccess = (route, user) => {
   if (user.Role === USER_ROLES.OPERATOR && route.OperatorUserId !== user.Id) {
@@ -58,7 +62,8 @@ export const getCurrentRun = async (routeId, user) => {
 
   const run = await RouteRun.findOne({
     where: { RouteId: routeId, Status: ROUTE_RUN_STATUS.IN_PROGRESS },
-    include: [{ model: Route, as: "Route" }, ...stopInclude]
+    include: [{ model: Route, as: "Route" }, ...stopInclude],
+    order: stopOrder
   });
 
   return { route, run };
@@ -85,8 +90,10 @@ export const startRouteRun = async (routeId, user) => {
     throw new ConflictError("Une tournée est déjà en cours pour cette route.");
   }
 
+  // Ordre de passage de l'admin, figé dans les arrêts : le réordonner ensuite ne change pas cette tournée
   const activeContracts = await Contract.findAll({
-    where: { RouteId: routeId, Status: CONTRACT_STATUS.ACTIVE }
+    where: { RouteId: routeId, Status: CONTRACT_STATUS.ACTIVE },
+    order: ROUTE_CONTRACT_ORDER
   });
 
   const template = await NotificationTemplate.findOne({
@@ -101,9 +108,10 @@ export const startRouteRun = async (routeId, user) => {
 
     if (activeContracts.length > 0) {
       await RouteRunStop.bulkCreate(
-        activeContracts.map((contract) => ({
+        activeContracts.map((contract, index) => ({
           RouteRunId: run.Id,
           ContractId: contract.Id,
+          Sequence: index + 1,
           Status: ROUTE_RUN_STOP_STATUS.PENDING
         })),
         { transaction }
@@ -135,7 +143,7 @@ export const startRouteRun = async (routeId, user) => {
 
   logger.info(`Tournée démarrée | route "${route.Name}" par utilisateur #${user.Id} | ${activeContracts.length} arrêt(s)`);
 
-  return RouteRun.findByPk(runId, { include: [{ model: Route, as: "Route" }, ...stopInclude] });
+  return RouteRun.findByPk(runId, { include: [{ model: Route, as: "Route" }, ...stopInclude], order: stopOrder });
 };
 
 export const updateStop = async (stopId, status, user) => {

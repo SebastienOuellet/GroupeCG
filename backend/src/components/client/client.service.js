@@ -4,6 +4,7 @@ import { logger } from "../../config/logger.js";
 import * as consentService from "../consent/consent.service.js";
 import { validateContactFields } from "../consent/contact.validation.js";
 import { CONSENT_METHODS, PERSON_TYPES } from "../consent/consent.constants.js";
+import { applyLocationMetadata } from "../serviceAddress/serviceAddress.service.js";
 
 const { Client, ServiceAddress, Contract, sequelize } = db;
 
@@ -64,7 +65,7 @@ export const createClient = async (payload) => {
     if (addressInfo) {
       const { Id, ClientId, ...addressFields } = addressInfo;
       const address = await ServiceAddress.create(
-        { ...addressFields, ClientId: client.Id },
+        { ...applyLocationMetadata({}, addressFields), ClientId: client.Id },
         { transaction }
       );
       client.setDataValue("ServiceAddresses", [address]);

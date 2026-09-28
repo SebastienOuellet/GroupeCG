@@ -19,6 +19,11 @@ export default (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: false
       },
+      /** Ordre figé au démarrage : réordonner la route pendant une tempête ne change pas la tournée en cours. */
+      Sequence: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
       Status: {
         type: DataTypes.STRING,
         allowNull: false,
