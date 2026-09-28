@@ -10,7 +10,7 @@ https://github.com/SebastienOuellet/GroupeCG (branche `main`)
 |---|---|
 | `RESUME-REPRISE.md` | Ce fichier : état actuel, démarrage, reste à faire, règles de travail |
 | `PLAN-ORIGINAL.md` | Plan initial (phases 1-5), **entièrement implémenté** — référence du modèle de données et des décisions |
-| `PLAN-ROUTES-GOOGLE.md` | **Prochain chantier** : optimisation des routes avec Google Route Optimization API — **plan seulement, rien d'implémenté** |
+| `PLAN-ROUTES-GOOGLE.md` | Chantier en cours : optimisation des routes avec Google Route Optimization API — **R1 (ordre des arrêts) livrée**, R0/R2+ à faire |
 
 Ces fichiers sont aussi copiés dans les docs du projet claude.ai « GroupeCG ». **Le repo fait foi** : en cas d'écart, c'est la version sur `main` qui est la bonne.
 
@@ -34,6 +34,11 @@ Chaque phase a été vérifiée par script (13 à 25 tests métier par phase, to
 - `2c6a829` / `4515577` — Envoi du contrat au client : aperçu PDF, courriel, téléchargement ; conditions du contrat papier dans le PDF
 - `b5153a8` / `7cad038` — Conditions du contrat modifiables par l'admin (Paramètres › Contrat, table `Settings`) + aperçu d'un contrat d'exemple
 - `53baf82` / `a63bbe0` — Locataires gérés depuis la fiche client, respect des désinscriptions, validation courriel/téléphone, logo dans le PDF
+
+### Routes — phase R1 : ordre des arrêts (28 septembre)
+- `da771fc` — Backend : `Contracts.RouteSequence`, `RouteRunStops.Sequence` figée au démarrage, `PUT /route/:id/sequence` (admin), dépôt `Settings.route_depot`, point d'attache `Routes.BaseLocation`, `ServiceAddresses.PlaceId/LocationSource/LocationUpdatedAt`
+- `7b3342b` — Frontend : page `/routes/:id` (glisser-déposer + position directe, carte, point d'attache, correction des pins), Paramètres › Routes (dépôt), vue opérateur ordonnée avec « Prochain arrêt » et « Naviguer »
+- ⚠️ **Migration `20260928100001-route-sequence` à exécuter sur la DB DigitalOcean** (`npm run migrate`) si ce n'est pas déjà fait — sans elle, les tournées plantent (colonne `Sequence` absente).
 
 Détails complets : `git log` (messages de commit en français, avec le pourquoi).
 
@@ -60,12 +65,13 @@ Migrations : `npm run migrate` dans `backend/` (la DB DigitalOcean est partagée
 
 ## Reste à faire
 
-### Prochain chantier : optimisation des routes (voir `PLAN-ROUTES-GOOGLE.md`)
-- **Trancher les 5 questions ouvertes** (section 7 du plan) : dépôt unique ou départ de chez l'opérateur, volumes réels, clients prioritaires avec heure limite, qui peut réordonner, retour au dépôt ou non.
+### Chantier en cours : optimisation des routes (voir `PLAN-ROUTES-GOOGLE.md`)
+- Questions ouvertes **tranchées** (§7 du plan) : dépôt unique au 200 rue des Villas, ~50 routes × ≤100 adresses, pas d'heure limite pour l'instant, réordonnancement admin seulement, retour au point d'attache (dépôt ou point propre à la route).
+- **Phase R1 livrée.** Reste à valider dans le navigateur : dépôt à saisir (Paramètres › Routes), réordonner une route, démarrer une tournée comme opérateur, tester « Naviguer » sur un téléphone.
+- Créer un **Map ID** Google (console Cloud › Map Management) et le mettre dans `googleMapsMapId` des fichiers `environment*.ts` avant la prod (sinon `DEMO_MAP_ID`).
 - Phase R0 : préparation Google Cloud (Route Optimization API, compte de service, alerte de budget, quota).
-- **Phase R1 en priorité, même sans Google** : aujourd'hui les arrêts d'une tournée (`RouteRunStops`) n'ont **aucun ordre** — l'opérateur les voit dans un ordre arbitraire. R1 ajoute `Contracts.RouteSequence`, `RouteRunStops.Sequence` (figée au démarrage), `ServiceAddresses.PlaceId`, le dépôt dans `Settings`, la page admin `/routes/:id` (glisser-déposer + carte) et le bouton « Naviguer » opérateur.
-- Phases R2 (bouton « Optimiser ») puis R3-R5 selon le plan.
-- **Conformité Google à régulariser** : `Latitude`/`Longitude` issues de Google Places sont stockées en permanence ; seul le `place_id` est stockable indéfiniment. Traité en R1 (voir §6 du plan).
+- Phase R2 (bouton « Optimiser ») : départ/retour = `BaseLocation ?? dépôt`. Attention au volume (~5 000 arrêts) : optimiser route par route, seulement quand elle change. Prévoir aussi la purge serveur des coordonnées Google expirées.
+- Phases R3-R5 selon le plan (R5 coûteux à ce volume, voir §7).
 
 ### Autres
 - Valider visuellement le parcours opérateur complet dans le navigateur (compte Firebase avec Role="operator", route assignée, démarrer/cocher/terminer).

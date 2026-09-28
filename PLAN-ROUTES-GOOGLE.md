@@ -1,6 +1,6 @@
 # Plan — Optimisation des routes avec Google (Route Optimization API)
 
-> Statut : **PLAN SEULEMENT — rien n'est implémenté.** Rédigé le 2026-09-27 à partir du code sur `main` (commit `a63bbe0`, après les phases 1-5 de `PLAN-ORIGINAL.md` et les ajouts du 26-27 septembre).
+> Statut : **Phase R1 livrée le 2026-09-28** (commits `da771fc` backend, `7b3342b` frontend) — voir « Phase R1 » §5. R0, R2 et suivantes : plan seulement. Rédigé le 2026-09-27 à partir du code sur `main` (commit `a63bbe0`, après les phases 1-5 de `PLAN-ORIGINAL.md` et les ajouts du 26-27 septembre).
 >
 > Pour reprendre : lire `RESUME-REPRISE.md` (état du code, démarrage, travail en parallèle), puis ce plan. Commencer par la section 7 (questions ouvertes), puis la phase R0.
 
@@ -159,6 +159,15 @@ Migrations `RouteSequence`, `RouteRunStops.Sequence`, `PlaceId`, `LocationSource
 → *Livrable : l'ordre de passage existe et l'opérateur le suit. Ça corrige le problème d'ordre arbitraire, même si on n'allait jamais plus loin.*
 → *Vérif : réordonner → démarrer une tournée → les arrêts sont dans l'ordre ; réordonner pendant une tournée → la tournée en cours ne change pas ; rollover → `RouteSequence` copié ; lien « Naviguer » testé sur téléphone.*
 
+**✅ Livré le 2026-09-28** (`da771fc`, `7b3342b`). Écarts et ajouts par rapport au plan :
+- Migration `20260928100001-route-sequence.cjs` : `Contracts.RouteSequence` (+ index), `RouteRunStops.Sequence` (tournées existantes renumérotées par ordre de création), `ServiceAddresses.PlaceId/LocationSource/LocationUpdatedAt` (coordonnées existantes marquées `google_places`), `Routes.SequenceSource/SequenceUpdatedAt/SequenceUpdatedByUserId/BaseLocation`.
+- `LocationSource` : `google_places` (autocomplete **et** recherche texte) / `manual_pin`. Géré par le serveur : coordonnées inchangées → rien ne bouge (un pin manuel reste manuel).
+- Rafraîchissement des coordonnées Google > 30 jours : fait **à l'ouverture de la page de la route** (Place Details par PlaceId, côté navigateur), pas par un cron serveur (pas de clé serveur avant R0). Une adresse jamais ouverte peut donc garder des coordonnées plus vieilles : purge serveur à prévoir en R2 avec le compte de service.
+- Contrat qui change de route → `RouteSequence = null` (« à placer », affiché à la fin). `RouteSequence` n'est modifiable que par `PUT /route/:id/sequence`.
+- Page `/routes/:id` : filtre par saison (actifs + brouillons), saisie directe de la position, « Inverser », distance à vol d'oiseau indicative, correction des pins sur la carte, garde de sortie si non enregistré.
+- Carte : marqueurs avancés → **Map ID requis** (`environment.googleMapsMapId`, vide = `DEMO_MAP_ID`, à remplacer par un vrai Map ID en prod).
+- Vérifié : 38 tests métier sur Postgres jetable + tests HTTP (droits admin/opérateur). Test navigateur à faire après `npm run migrate` sur la DB DigitalOcean.
+
 ### Phase R2 — Optimisation Google (~2-3 soirées)
 `src/routing/` (factory + NearestNeighbor + Google) ; `optimize` / `apply` ; aperçu avant/après dans `/routes/:id`.
 → *Livrable : un clic → proposition → validation.*
@@ -196,13 +205,15 @@ Au « Démarrer la route », appel d'évaluation de l'ordre figé → ETA par ar
 
 ---
 
-## 7. Questions ouvertes (à trancher avant R1)
+## 7. Questions ouvertes — tranchées le 2026-09-28
 
-- Un seul dépôt (la cour) ou chaque opérateur part-il de chez lui ?
-- Combien de routes et d'adresses par route (ordre de grandeur réel) ?
-- Y a-t-il des clients prioritaires avec heure limite (commerces, garderies, cliniques) ?
-- L'opérateur doit-il pouvoir réordonner lui-même depuis le téléphone, ou seulement l'admin ?
-- La route revient-elle au dépôt à la fin, ou se termine-t-elle au dernier arrêt ?
+| Question | Réponse | Conséquence |
+|---|---|---|
+| Dépôt unique ou départ de chez l'opérateur ? | **Dépôt unique : 200 rue des Villas, Sherbrooke.** | `Settings.route_depot`, réglé dans Paramètres › Routes. |
+| Volumes réels ? | Ordre de grandeur d'un autre client FolloSOFT : **~50 routes, jusqu'à 100 adresses par route** (~5 000 arrêts). | Séquence écrite en une requête (`unnest`), saisie directe de la position en plus du glisser-déposer. **Coûts R2/R5 à revoir** : une optimisation complète de toutes les routes ≈ 5 000 événements *Single Vehicle* (tout le palier gratuit mensuel) ; R5 (ETA à chaque tempête) ≈ 5 000 événements par tempête → payant (~50 $ US/tempête au tarif public). Optimiser route par route, seulement quand elle change. |
+| Clients prioritaires avec heure limite ? | Non pour l'instant, **mais possible plus tard**. | Rien en R1 ; `Contracts.ServiceDeadline` + `timeWindows` restent en R3. |
+| L'opérateur réordonne-t-il depuis son téléphone ? | **Non, admin seulement.** | `PUT /route/:id/sequence` réservé à l'admin ; la vue opérateur affiche l'ordre figé. |
+| Retour au dépôt ? | **Oui**, mais une route peut avoir un **point d'attache propre** (ex. tracteur stationné ailleurs). | `Routes.BaseLocation` (JSONB) : départ **et** retour ; null = dépôt. En R2 : `startWaypoint = endWaypoint = BaseLocation ?? dépôt`. |
 
 ---
 
