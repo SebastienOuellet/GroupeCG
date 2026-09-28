@@ -11,7 +11,7 @@ https://github.com/SebastienOuellet/GroupeCG (branche `main`)
 | `RESUME-REPRISE.md` | Ce fichier : état actuel, démarrage, reste à faire, règles de travail |
 | `PLAN-ORIGINAL.md` | Plan initial (phases 1-5), **entièrement implémenté** — référence du modèle de données et des décisions |
 | `PLAN-ROUTES-GOOGLE.md` | Chantier en cours : optimisation des routes avec Google Route Optimization API — **R1 (ordre des arrêts) livrée**, R0/R2+ à faire |
-| `PLAN-GPS-TRACTEURS.md` | Chantier en cours sur la branche **`GPS`** : géolocalisation des tracteurs — **G1 (positions, carte `/suivi`) et G2 (« Fait » automatique, carte du trajet opérateur) livrées**, G3+ à faire |
+| `PLAN-GPS-TRACTEURS.md` | Chantier en cours sur la branche **`GPS`** : géolocalisation des tracteurs — **V1 livrée (G1 positions et `/suivi`, G2 « Fait » automatique et carte du trajet opérateur, G3 suivi dans le portail client)**, G4+ et journal de passage à faire |
 
 Ces fichiers sont aussi copiés dans les docs du projet claude.ai « GroupeCG ». **Le repo fait foi** : en cas d'écart, c'est la version sur `main` qui est la bonne.
 
@@ -94,7 +94,8 @@ Migrations : `npm run migrate` dans `backend/` (la DB DigitalOcean est partagée
 - ⚠️ Migrations `20260928300001-gps-vehicles-positions` et `20260928300002-gps-stop-arrivals` à exécuter sur la DB DigitalOcean avant de tester la branche (`npm run migrate`). Elles n'existent pas sur `main` : ne pas lancer `migrate` depuis `main` ensuite sans la branche.
 - À valider dans le navigateur : la carte Google de `/suivi` (non testable depuis le poste de Claude), Traccar Client sur un téléphone (URL publique du serveur requise, ou tunnel ngrok).
 - À valider sur le terrain : la carte et le trajet de la vue opérateur (Routes API), un vrai « Fait » automatique en voiture (rayon 35 m, 45 s minimum).
-- Suite : G3 (suivi du tracteur dans le portail client).
+- G3 : le client voit dans le portail « il reste X arrêts avant le vôtre », le tracteur sur une carte, puis « Votre entrée a été déneigée à … ». Désactivable dans Paramètres › Véhicules.
+- Suite : journal de passage non modifiable (preuve de service, demandé et reporté), G4 (calibration des durées) après quelques tempêtes, fusion de `GPS` dans `main` une fois validée sur le terrain.
 - V1 = G1 + G2 (« Fait » automatique) + G3 (suivi dans le portail). Pas de SMS automatique d'arrivée avant d'avoir calibré les durées (G4).
 
 ### Autres

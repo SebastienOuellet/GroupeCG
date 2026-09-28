@@ -51,6 +51,7 @@ export interface TrackingSettings {
   exitMarginM: number;
   minDwellSeconds: number;
   lookaheadStops: number;
+  portalTrackingEnabled: boolean;
 }
 
 export interface TrackingSettingsResponse {

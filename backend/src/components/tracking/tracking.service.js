@@ -1,10 +1,10 @@
 import db from "../../../models/index.js";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../../errors/Errors.js";
 import { logger } from "../../config/logger.js";
-import { ROUTE_RUN_STATUS } from "../routeRun/routeRun.constants.js";
+import { ROUTE_RUN_STATUS, ROUTE_RUN_STOP_STATUS, STOP_DONE_SOURCE } from "../routeRun/routeRun.constants.js";
 import { USER_ROLES } from "../user/user.constants.js";
 import { getTrackingSettings } from "../setting/setting.service.js";
-import { GEOFENCE_MAX_ACCURACY_M, POSITION_RULES, POSITION_SOURCE, POSITION_SOURCES, STALE_POSITION_MS } from "./tracking.constants.js";
+import { GEOFENCE_MAX_ACCURACY_M, PORTAL_RECENT_VISIT_HOURS, POSITION_RULES, POSITION_SOURCE, POSITION_SOURCES, STALE_POSITION_MS } from "./tracking.constants.js";
 import { advanceGeofence } from "../../tracking/geofence.js";
 
 const { RouteRun, RouteRunStop, Route, User, Vehicle, VehiclePosition, Contract, ServiceAddress, Sequelize, sequelize } = db;
@@ -325,7 +325,7 @@ export const getLiveRuns = async () => {
         route: run.Route ? { id: run.Route.Id, name: run.Route.Name } : null,
         operator: run.Operator ? { id: run.Operator.Id, name: run.Operator.Name || run.Operator.Email } : null,
         vehicle: run.Vehicle ? { id: run.Vehicle.Id, name: run.Vehicle.Name, batteryPercent: run.Vehicle.LastBatteryPercent } : null,
-        doneCount: stops.filter((stop) => stop.Status !== "pending").length,
+        doneCount: stops.filter((stop) => stop.Status !== ROUTE_RUN_STOP_STATUS.PENDING).length,
         totalCount: stops.length,
         lastPosition,
         signal: describeSignal(lastPosition),
@@ -362,6 +362,84 @@ export const getRunTrace = async (runId) => {
     order: [["RecordedAt", "ASC"], ["Id", "ASC"]]
   });
   return { run, positions: positions.map(positionJson) };
+};
+
+/* ------------------------------------------------------------------ */
+/* Portail client                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Suivi pour le client connecté au portail (son contrat seulement) : la tournée en cours
+ * qui passe chez lui, ou sa dernière visite des `PORTAL_RECENT_VISIT_HOURS` dernières heures.
+ *
+ * Ne renvoie jamais rien sur les autres clients : ni leurs adresses ni l'ordre de la route,
+ * seulement combien d'arrêts restent avant le sien et la position du tracteur. Pas de nom
+ * d'opérateur ni de tracteur. La position n'est donnée que tant que son entrée reste à faire.
+ */
+export const getPortalTracking = async (contractId) => {
+  const { values: settings } = await getTrackingSettings();
+  if (!settings.portalTrackingEnabled) {
+    return { enabled: false, visit: null };
+  }
+
+  const since = new Date(Date.now() - PORTAL_RECENT_VISIT_HOURS * 60 * 60 * 1000);
+  const stop = await RouteRunStop.findOne({
+    where: { ContractId: contractId },
+    attributes: ["Id", "RouteRunId", "Sequence", "Status", "DoneAt", "DoneSource", "ArrivedAt", "DepartedAt"],
+    include: [
+      {
+        model: RouteRun,
+        as: "RouteRun",
+        attributes: ["Id", "Status", "StartedAt", "CompletedAt"],
+        required: true,
+        where: {
+          [Op.or]: [
+            { Status: ROUTE_RUN_STATUS.IN_PROGRESS },
+            { Status: ROUTE_RUN_STATUS.COMPLETED, CompletedAt: { [Op.gte]: since } }
+          ]
+        }
+      },
+      { model: Contract, as: "Contract", attributes: ["Id"], include: [{ model: ServiceAddress, as: "ServiceAddress", attributes: ["Latitude", "Longitude"] }] }
+    ],
+    // Tournée en cours d'abord, sinon la plus récente
+    order: [[sequelize.literal(`CASE WHEN "RouteRun"."Status" = '${ROUTE_RUN_STATUS.IN_PROGRESS}' THEN 0 ELSE 1 END`), "ASC"], [{ model: RouteRun, as: "RouteRun" }, "StartedAt", "DESC"]]
+  });
+  if (!stop) {
+    return { enabled: true, visit: null };
+  }
+
+  const run = stop.RouteRun;
+  const inProgress = run.Status === ROUTE_RUN_STATUS.IN_PROGRESS;
+  const pending = stop.Status === ROUTE_RUN_STOP_STATUS.PENDING;
+  const stopsBefore = inProgress && pending
+    ? await RouteRunStop.count({ where: { RouteRunId: run.Id, Status: ROUTE_RUN_STOP_STATUS.PENDING, Sequence: { [Op.lt]: stop.Sequence } } })
+    : 0;
+
+  let tractor = null;
+  if (inProgress && pending) {
+    const last = (await getLastPositions([run.Id])).get(run.Id);
+    if (last) {
+      tractor = { latitude: last.latitude, longitude: last.longitude, heading: last.heading, recordedAt: last.recordedAt, isStale: describeSignal(last).isStale };
+    }
+  }
+
+  const address = stop.Contract?.ServiceAddress;
+  return {
+    enabled: true,
+    visit: {
+      inProgress,
+      startedAt: run.StartedAt,
+      status: stop.Status,
+      doneAt: stop.DoneAt,
+      /** Détecté par le GPS du tracteur (plutôt que coché à la main). */
+      confirmedByGps: stop.DoneSource === STOP_DONE_SOURCE.AUTO_GPS,
+      /** Tracteur dans l'entrée en ce moment. */
+      tractorHere: pending && !!stop.ArrivedAt && !stop.DepartedAt,
+      stopsBefore,
+      tractor,
+      destination: address?.Latitude == null ? null : { latitude: Number(address.Latitude), longitude: Number(address.Longitude) }
+    }
+  };
 };
 
 /* ------------------------------------------------------------------ */

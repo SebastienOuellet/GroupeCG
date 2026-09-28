@@ -1,6 +1,6 @@
 # Plan — Géolocalisation des tracteurs (suivi en direct, « Fait » automatique)
 
-> Statut (2026-09-28) : **G1 et G2 livrées sur la branche `GPS`** (pas encore fusionnée dans `main`), plus une carte du trajet dans la vue opérateur ; G3 à G6 à faire. Rédigé à partir du code sur `main` (commit `776503a`, après R0-R3 de `PLAN-ROUTES-GOOGLE.md`).
+> Statut (2026-09-28) : **G1, G2 et G3 livrées sur la branche `GPS`** (pas encore fusionnée dans `main`) = V1 complète, plus une carte du trajet dans la vue opérateur ; G4 à G6 et le journal de passage à faire. Rédigé à partir du code sur `main` (commit `776503a`, après R0-R3 de `PLAN-ROUTES-GOOGLE.md`).
 >
 > Pour reprendre : lire `RESUME-REPRISE.md` (état du code, démarrage, travail sur deux postes), puis ce plan. Commencer par la phase G1.
 
@@ -183,6 +183,15 @@ Champs `RouteRunStops` (`ArrivedAt`, `DepartedAt`, `ServiceSeconds`, `TravelSeco
 `GET /api/portal/tracking` ; carte et « X arrêts avant le vôtre » dans `/portail/gestion` ; réglage `portalTrackingEnabled`.
 → *Vérif : contrat hors tournée en cours → rien d'affiché ; tournée en cours → nombre d'arrêts juste ; jeton expiré → 401 ; aucune donnée d'un autre client dans la réponse (seulement la position du tracteur et l'état de SON arrêt).*
 
+**✅ Livrée le 2026-09-28 sur la branche `GPS`.** Écarts et ajouts :
+- `GET /api/portal/tracking` (jeton portail, limite dédiée de 120 requêtes / 15 min par IP) : la tournée en cours qui passe chez le client, sinon sa dernière visite des **12 dernières heures** (`PORTAL_RECENT_VISIT_HOURS`) pour « Votre entrée a été déneigée à 5 h 42 ».
+- Réponse volontairement minimale : état de SON arrêt, nombre d'arrêts avant le sien, position du tracteur **seulement tant que son entrée reste à faire**, son adresse. Ni ordre de la route, ni autres adresses, ni nom d'opérateur, de tracteur ou de route.
+- États affichés : « Déneigement en cours dans votre secteur — il reste X arrêts », « Vous êtes le prochain arrêt », « Le déneigeur est chez vous », « Votre entrée a été déneigée à … (passage confirmé par le GPS du tracteur) », « Passage reporté ».
+- Carte (tracteur + maison) seulement pendant l'attente. La page s'actualise aux 30 s, y compris avant le départ de la tournée (une page ouverte d'avance voit le tracteur arriver).
+- Réglage « Montrer le tracteur aux clients » (`portalTrackingEnabled`) dans Paramètres › Véhicules.
+- Limite connue : le jeton du portail expire après 30 min ; un client qui suit plus longtemps doit se reconnecter.
+- Vérifié : 20 tests API (confidentialité incluse) + 8 tests navigateur headless ; G1 (56) et G2 (31) relancés sans régression. Carte Google non testable ici.
+
 ### Phase G4 — Statistiques et calibration des durées (~2 soirées, après quelques tempêtes)
 Page Paramètres › Routes › « Durées réelles » : médiane de `ServiceSeconds` par revêtement × taille d'entrée, nombre d'échantillons, écart avec les réglages actuels, bouton « Appliquer les durées suggérées » ; par route, trajet réel vs estimé par l'optimiseur.
 → *Vérif : données simulées sur 3 tournées → médianes justes, arrêts `manual` sans `ArrivedAt` exclus, valeurs aberrantes (> 30 min) exclues.*
@@ -196,6 +205,13 @@ Compte développeur CNH (courriel de domaine d'entreprise), EULA accepté pour l
 → *Avant d'écrire du code : mesurer la fréquence réelle des positions de l'API. Si c'est aux minutes, le géorepérage ne sera pas fiable pour ce tracteur : garder la carte, désactiver le « Fait » auto pour ce véhicule, ou lui ajouter un téléphone/ESP32.*
 
 **= V1 complète : G1 + G2 + G3, ~7-8 soirées.** G4 dès qu'il y a assez de données.
+
+### Plus tard — Journal de passage (preuve de service)
+Demandé par Sébastien le 2026-09-28, reporté après G3. Aujourd'hui, **Annuler efface** ArrivedAt/DepartedAt/DoneSource, et les positions brutes sont purgées après 30 jours : un « Fait (GPS) » peut donc disparaître sans trace. À faire :
+- table append-only `RouteRunStopEvents` (comme `ConsentLogs`) : arrivée, départ, fait auto, coché/passé/annulé à la main (par qui), avec heure, source et la position GPS du moment (précision incluse) ; rien n'est jamais effacé, l'annulation devient une ligne ;
+- historique de passage dans la fiche du contrat (une ligne par tempête : arrivée, départ, durée, source, opérateur, tracteur ; trace sur la carte tant qu'elle existe) ;
+- conservation réglable (12 mois par défaut : saison + contestation, Loi 25) ; plus tard, preuve de passage en PDF.
+- Limite à garder en tête : prouve la présence du tracteur, pas la qualité du déneigement ; un pin mal placé affaiblit la preuve.
 
 ### Plus tard (hors V1) — Préavis « 15 min avant » par SMS
 Prérequis : G4 appliqué, durées réelles sur plusieurs tempêtes.

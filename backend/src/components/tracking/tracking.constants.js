@@ -25,7 +25,9 @@ export const DEFAULT_TRACKING_SETTINGS = {
   /** En dessous, c'est un simple passage devant l'adresse, pas un déneigement. */
   minDwellSeconds: 45,
   /** Arrêts à faire (dans l'ordre) où l'on cherche une arrivée : évite de confondre avec une adresse plus loin sur la route. */
-  lookaheadStops: 3
+  lookaheadStops: 3,
+  /** Le client voit le tracteur et « X arrêts avant le vôtre » dans le portail pendant une tournée. */
+  portalTrackingEnabled: true
 };
 
 /** Réglages numériques (entiers) et leurs bornes ; les booléens sont dans TRACKING_BOOLEAN_SETTINGS. */
@@ -38,7 +40,10 @@ export const TRACKING_LIMITS = {
   lookaheadStops: { min: 1, max: 10 }
 };
 
-export const TRACKING_BOOLEAN_SETTINGS = ["autoCompleteStops"];
+export const TRACKING_BOOLEAN_SETTINGS = ["autoCompleteStops", "portalTrackingEnabled"];
+
+/** Après la tournée, le portail montre encore « Votre entrée a été déneigée à … » pendant ce délai. */
+export const PORTAL_RECENT_VISIT_HOURS = 12;
 
 /** Au-delà, une position est trop imprécise pour décider d'une arrivée (gardée pour la carte). */
 export const GEOFENCE_MAX_ACCURACY_M = 100;

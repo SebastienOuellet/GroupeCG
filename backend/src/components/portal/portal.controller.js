@@ -1,6 +1,7 @@
 import * as portalService from "./portal.service.js";
 import { portalAuth } from "./portal.auth.js";
-import { portalRateLimit, publicRateLimit } from "../../middlewares/rateLimit.js";
+import { portalRateLimit, portalTrackingRateLimit, publicRateLimit } from "../../middlewares/rateLimit.js";
+import { getPortalTracking } from "../tracking/tracking.service.js";
 
 const login = async (req, res, next) => {
   try {
@@ -55,10 +56,20 @@ const updatePreferences = async (req, res, next) => {
   }
 };
 
+const getTracking = async (req, res, next) => {
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).json(await getPortalTracking(req.portalContractId));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const portalController = {
   routes: [
     { method: "POST", url: "/login", middleware: [portalRateLimit, login], authRequired: false },
     { method: "GET", url: "/me", middleware: [publicRateLimit, portalAuth, getMe], authRequired: false },
+    { method: "GET", url: "/tracking", middleware: [portalTrackingRateLimit, portalAuth, getTracking], authRequired: false },
     { method: "POST", url: "/tenants", middleware: [publicRateLimit, portalAuth, createTenant], authRequired: false },
     { method: "PUT", url: "/tenants/:id", middleware: [publicRateLimit, portalAuth, updateTenant], authRequired: false },
     { method: "DELETE", url: "/tenants/:id", middleware: [publicRateLimit, portalAuth, deactivateTenant], authRequired: false },

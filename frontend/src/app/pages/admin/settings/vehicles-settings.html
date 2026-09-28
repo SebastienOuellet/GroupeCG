@@ -149,6 +149,10 @@
       <input type="checkbox" name="autoCompleteStops" [(ngModel)]="t.autoCompleteStops" />
       <span>Marquer « Fait » automatiquement quand le tracteur repart d'une entrée</span>
     </label>
+    <label class="form-field form-field--checkbox" style="margin-bottom: 1rem">
+      <input type="checkbox" name="portalTrackingEnabled" [(ngModel)]="t.portalTrackingEnabled" />
+      <span>Montrer le tracteur aux clients dans le portail (« Il reste X arrêts avant le vôtre »)</span>
+    </label>
     <div class="form-grid">
       <label class="form-field">
         <span>Rayon d'arrivée (m)</span>
