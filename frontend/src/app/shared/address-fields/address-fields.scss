@@ -36,6 +36,14 @@
   }
 }
 
+.size-chip {
+  border: 1px solid #d0d5dd;
+  border-radius: 99px;
+  background: #fff;
+  color: var(--color-secondary);
+  font-weight: 600;
+}
+
 .address-fields__notes {
   margin-bottom: 1rem;
 

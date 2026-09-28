@@ -27,3 +27,17 @@ export interface RouteDepotResponse {
   value: NamedLocation | null;
   updatedAt: string | null;
 }
+
+/** Paramètres de l'optimiseur (Paramètres › Routes). Clés : revêtements + "unknown", tailles d'entrée. */
+export interface RouteOptimizationSettings {
+  visitMinutesBySurface: Record<string, number>;
+  sizeFactors: Record<string, number>;
+  /** HH:MM, heure de l'Est. */
+  departureTime: string;
+}
+
+export interface RouteOptimizationSettingsResponse {
+  values: RouteOptimizationSettings;
+  defaults: RouteOptimizationSettings;
+  updatedAt: string | null;
+}

@@ -68,6 +68,7 @@
           <th>Nom</th>
           <th>Description</th>
           <th>Opérateur</th>
+          <th>Ordre de passage</th>
           <th></th>
         </tr>
       </thead>
@@ -77,6 +78,17 @@
             <td data-label="Nom"><strong>{{ route.Name }}</strong></td>
             <td data-label="Description">{{ route.Description || "—" }}</td>
             <td data-label="Opérateur">{{ route.Operator?.Name || route.Operator?.Email || "—" }}</td>
+            <td data-label="Ordre de passage">
+              @if (route.UnplacedCount) {
+                <span class="badge badge--draft" title="Contrats ajoutés depuis le dernier ordre : à placer ou réoptimiser">
+                  {{ route.UnplacedCount }} à placer — réordonner
+                </span>
+              } @else if (route.SequenceUpdatedAt) {
+                <span class="badge badge--active">{{ route.SequenceSource === "optimized" ? "Optimisé" : "Manuel" }} le {{ route.SequenceUpdatedAt.slice(0, 10) }}</span>
+              } @else {
+                <span class="badge">Jamais ordonnée</span>
+              }
+            </td>
             <td class="cell-actions">
               <button type="button" class="btn-outline" (click)="$event.stopPropagation(); open(route)">Ordre de passage</button>
               <button type="button" class="btn-outline" (click)="$event.stopPropagation(); openForm(route)">Modifier</button>

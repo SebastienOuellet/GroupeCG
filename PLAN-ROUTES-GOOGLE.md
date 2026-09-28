@@ -1,6 +1,6 @@
 # Plan — Optimisation des routes avec Google (Route Optimization API)
 
-> Statut : **Phases R1 et R2 livrées le 2026-09-28** — voir §5. R2 tourne avec l'optimiseur local tant que R0 (Google Cloud) n'est pas faite. R3 et suivantes : plan seulement. Rédigé le 2026-09-27 à partir du code sur `main` (commit `a63bbe0`, après les phases 1-5 de `PLAN-ORIGINAL.md` et les ajouts du 26-27 septembre).
+> Statut (2026-09-28) : **R0, R1, R2, R3 faites** ; trajet routier réel sur la carte ajouté. **R4 et R5 abandonnées** (décision de Sébastien). Purge serveur des coordonnées Google expirées : non faite (serveur de dev, jugée inutile pour l'instant). Rédigé le 2026-09-27 à partir du code sur `main` (commit `a63bbe0`, après les phases 1-5 de `PLAN-ORIGINAL.md` et les ajouts du 26-27 septembre).
 >
 > Pour reprendre : lire `RESUME-REPRISE.md` (état du code, démarrage, travail en parallèle), puis ce plan. Commencer par la section 7 (questions ouvertes), puis la phase R0.
 
@@ -186,17 +186,31 @@ Migrations `RouteSequence`, `RouteRunStops.Sequence`, `PlaceId`, `LocationSource
 
 **= MVP complet (R0 + R1 + R2), ~5 soirées.**
 
+### Trajet routier sur la carte (ajout du 2026-09-28, `d9a7bc1`)
+- Google **Routes API** depuis le navigateur (`Route.computeRoutes`, librairie `routes` de Maps JS), tronçons de 25 arrêts intermédiaires ; tracé bleu avec le sens, km et minutes de route. Recalculé 1,2 s après un changement d'ordre, cache par ordre, jamais stocké.
+- Bascules 🚜 Trajet routier / 🐦 Vol d'oiseau ; aperçu d'optimisation sur les deux mesures, avertissement si plus court à vol d'oiseau mais plus long par la route.
+- Requiert **Routes API** activée et permise pour la clé du navigateur.
+
 ### Phase R3 — Contraintes propres au déneigement (production, ~2 soirées)
+
+**✅ Livré le 2026-09-28** (`6585e62` backend + frontend suivant), sans les heures limites :
+- Settings `route_optimization` (Paramètres › Routes) : minutes par revêtement (+ « non précisé »), facteur par taille d'entrée, heure de départ. Défauts dans `DEFAULT_ROUTE_OPTIMIZATION_SETTINGS`, fusion clé par clé.
+- `ServiceAddresses.DrivewaySize` (simple/double/triple/grande) — migration `20260928100002`. Sélecteur dans la fiche adresse, pastille « Entrée double » côté admin et opérateur.
+- Google reçoit `globalStartTime` (prochaine occurrence de l'heure de départ, heure de l'Est) ; la proposition renvoie départ, retour estimé, total du déneigement. La page de la route affiche « Départ 03:30 → retour ≈ … » (route Google + déneigement).
+- Liste des routes : colonne « Ordre de passage » (x à placer — réordonner / optimisé ou manuel le … / jamais ordonnée), via `UnplacedCount`.
+- **Pas fait** (pas de besoin actuel) : heures limites (`ServiceDeadline` → `timeWindows`), `sideOfRoad`.
+
+Plan d'origine :
 - Durée de visite selon `DrivewaySurface` et une taille d'entrée (nouveau champ optionnel).
 - **Fenêtres horaires** : `Contracts.ServiceDeadline` (ex. `06:30`) pour les commerces → `timeWindows`.
 - Heure de départ réelle d'une tournée type (ex. 3 h 30) comme `globalStartTime`.
 - `sideOfRoad` si ça s'avère utile sur le terrain.
 - Suggestion « Cette route a changé (3 contrats ajoutés) — réoptimiser ? » dans la liste des routes.
 
-### Phase R4 — Découpage des routes (scalable)
+### Phase R4 — Découpage des routes (scalable) — ❌ abandonnée le 2026-09-28
 Fleet Routing : tous les contrats actifs × tous les camions → proposition de réaffectation (« 7 contrats passeraient de la route A à la route B »), puis validation par l'admin. À faire une fois par saison, après le rollover.
 
-### Phase R5 — Heure estimée dans les SMS (scalable)
+### Phase R5 — Heure estimée dans les SMS (scalable) — ❌ abandonnée le 2026-09-28
 Au « Démarrer la route », appel d'évaluation de l'ordre figé → ETA par arrêt → variable `{{heure_estimee}}` dans le gabarit `route_start` (« entre 5 h 30 et 6 h 00 »). Il faut que `enqueueBatch` supporte des variables propres à chaque destinataire (aujourd'hui, c'est un seul corps interpolé). Fourchette large volontairement : une tempête fausse les ETA.
 
 ---

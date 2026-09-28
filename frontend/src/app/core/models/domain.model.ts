@@ -1,4 +1,5 @@
 import { DrivewaySurface } from "./driveway-surface";
+import { DrivewaySize } from "./driveway-size";
 import { Suppressions } from "./consent";
 import { LocationSource, NamedLocation } from "./location.model";
 
@@ -37,6 +38,8 @@ export interface ServiceAddress {
   LocationSource?: LocationSource | null;
   LocationUpdatedAt?: string | null;
   DrivewaySurface: DrivewaySurface | null;
+  /** Taille de l'entrée : multiplie la durée de déneigement estimée. null = simple. */
+  DrivewaySize?: DrivewaySize | null;
   Notes: string | null;
   IsActive: boolean;
   Tenants?: Tenant[];
@@ -56,6 +59,8 @@ export interface RouteModel {
   SequenceSource?: RouteSequenceSource | null;
   SequenceUpdatedAt?: string | null;
   SequenceUpdatedBy?: { Id: number; Name: string | null; Email: string } | null;
+  /** Liste des routes : contrats actifs/brouillons pas encore placés dans l'ordre. */
+  UnplacedCount?: number;
 }
 
 export type RouteSequenceSource = "manual" | "optimized";

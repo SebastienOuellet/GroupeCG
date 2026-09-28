@@ -1,6 +1,6 @@
 import { inject, Injectable } from "@angular/core";
 import { ApiService } from "../api.service";
-import { ContractTerms, ContractTermsResponse, RouteDepotResponse } from "../models/setting.model";
+import { ContractTerms, ContractTermsResponse, RouteDepotResponse, RouteOptimizationSettings, RouteOptimizationSettingsResponse } from "../models/setting.model";
 import { NamedLocation } from "../models/location.model";
 
 @Injectable({
@@ -28,5 +28,13 @@ export class SettingService {
 
   updateRouteDepot(depot: NamedLocation): Promise<RouteDepotResponse> {
     return this.api.put<RouteDepotResponse>("setting/route-depot", depot);
+  }
+
+  getRouteOptimizationSettings(): Promise<RouteOptimizationSettingsResponse> {
+    return this.api.get<RouteOptimizationSettingsResponse>("setting/route-optimization");
+  }
+
+  updateRouteOptimizationSettings(settings: RouteOptimizationSettings): Promise<RouteOptimizationSettingsResponse> {
+    return this.api.put<RouteOptimizationSettingsResponse>("setting/route-optimization", settings);
   }
 }

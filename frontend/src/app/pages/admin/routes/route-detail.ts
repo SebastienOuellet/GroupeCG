@@ -8,6 +8,7 @@ import { DrivingRoute, GoogleMapsService, LatLng, ResolvedAddress } from "../../
 import { Contract, ContractStatus, RouteModel, ServiceAddress } from "../../../core/models/domain.model";
 import { haversineKm, isGoogleLocationStale, NamedLocation, OptimizationProposal } from "../../../core/models/location.model";
 import { AddressAutocomplete } from "../../../shared/address-autocomplete/address-autocomplete";
+import { RouteOptimizationSettings } from "../../../core/models/setting.model";
 import { PinMove, RouteMap, RouteMapEndpoint, RouteMapStop } from "./route-map/route-map";
 import { OptimizationProposalPanel } from "./optimization-proposal/optimization-proposal";
 
@@ -72,6 +73,8 @@ export class RouteDetail implements OnInit {
 
   readonly route = signal<RouteModel | null>(null);
   readonly depot = signal<NamedLocation | null>(null);
+  /** Durées de déneigement et heure de départ (Paramètres › Routes). */
+  readonly optimizationSettings = signal<RouteOptimizationSettings | null>(null);
   private readonly allContracts = signal<Contract[]>([]);
   readonly season = signal<number | null>(null);
   /** Liste de travail (non enregistrée tant que `dirty`). */
@@ -206,6 +209,30 @@ export class RouteDetail implements OnInit {
     this.roadCache.update((cache) => ({ ...cache, [key]: state }));
   }
 
+  /** Minutes de déneigement de l'ordre affiché : revêtement × taille (mêmes règles que l'optimiseur). */
+  readonly visitMinutes = computed(() => {
+    const settings = this.optimizationSettings();
+    if (!settings) return null;
+    const seconds = this.order().reduce((sum, c) => {
+      const a = c.ServiceAddress;
+      const minutes = settings.visitMinutesBySurface[a?.DrivewaySurface ?? "unknown"] ?? settings.visitMinutesBySurface["unknown"];
+      const factor = settings.sizeFactors[a?.DrivewaySize ?? "single"] ?? 1;
+      return sum + Math.round(minutes * factor * 60);
+    }, 0);
+    return Math.round(seconds / 60);
+  });
+
+  /** Heure de retour estimée : départ + route (Google) + déneigement. Null tant que le trajet routier n'est pas connu. */
+  readonly returnTime = computed(() => {
+    const settings = this.optimizationSettings();
+    const road = this.currentRoad();
+    const visits = this.visitMinutes();
+    if (!settings || road?.status !== "ready" || visits === null) return null;
+    const [h, m] = settings.departureTime.split(":").map(Number);
+    const total = h * 60 + m + Math.round(road.route.durationSeconds / 60) + visits;
+    return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  });
+
   roadKm(state: RoadState | null): number | null {
     return state?.status === "ready" ? state.route.distanceMeters / 1000 : null;
   }
@@ -228,13 +255,15 @@ export class RouteDetail implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const [route, contracts, depot] = await Promise.all([
+      const [route, contracts, depot, optimization] = await Promise.all([
         this.routeService.getRoute(this.routeId),
         this.routeService.getRouteContracts(this.routeId),
-        this.settingService.getRouteDepot()
+        this.settingService.getRouteDepot(),
+        this.settingService.getRouteOptimizationSettings()
       ]);
       this.route.set(route);
       this.depot.set(depot.value);
+      this.optimizationSettings.set(optimization.values);
       this.allContracts.set(contracts);
       if (this.season() === null || !this.seasons().includes(this.season()!)) {
         this.season.set(this.defaultSeason(contracts));

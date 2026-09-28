@@ -34,9 +34,12 @@
 
   <p class="proposal__note">
     @if (p.provider === "google" && p.proposed.durationMinutes !== null) {
-      Selon Google : ≈ {{ p.proposed.durationMinutes }} min avec le déneigement.
+      Selon Google : ≈ {{ p.proposed.durationMinutes }} min avec {{ p.visitMinutes }} min de déneigement
     } @else if (p.proposed.durationMinutes !== null) {
-      Durée indicative ≈ {{ p.proposed.durationMinutes }} min (30 km/h + temps par entrée).
+      Durée indicative ≈ {{ p.proposed.durationMinutes }} min (30 km/h + {{ p.visitMinutes }} min de déneigement)
+    }
+    @if (p.returnTime) {
+      — départ {{ p.departureTime }}, retour ≈ {{ p.returnTime }}.
     }
     Pointillé gris sur la carte = ordre enregistré.
   </p>

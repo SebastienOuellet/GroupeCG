@@ -50,4 +50,9 @@ export interface OptimizationProposal {
   current: { straightLineKm: number };
   proposed: { straightLineKm: number; distanceKm: number | null; durationMinutes: number | null };
   elapsedMs: number;
+  /** Heure de départ réglée (HH:MM) et heure de retour estimée par l'optimiseur. */
+  departureTime: string;
+  returnTime: string | null;
+  /** Total du déneigement des entrées (minutes), selon Paramètres › Routes. */
+  visitMinutes: number;
 }

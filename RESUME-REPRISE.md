@@ -47,7 +47,13 @@ Chaque phase a été vérifiée par script (13 à 25 tests métier par phase, to
 
 - Session admin/opérateur : token Firebase obtenu frais à chaque requête (`AuthStore.getIdToken`, `onIdTokenChanged`), 401 → token forcé et requête rejouée une fois, 401 persistant → déconnexion et `/login`. Plus de « Token d'authentification invalide ou expiré » après 1 h ou une mise en veille.
 
-- ⚠️ **Migration `20260928100001-route-sequence` à exécuter sur la DB DigitalOcean** (`npm run migrate`) si ce n'est pas déjà fait — sans elle, les tournées plantent (colonne `Sequence` absente).
+### Routes — trajet routier et phase R3 (28 septembre)
+- `d9a7bc1` — Trajet routier réel (Google Routes API) sur la carte 🚜 en plus du vol d'oiseau 🐦, km et minutes de route, comparaison sur les deux mesures dans l'aperçu d'optimisation
+- `6585e62` — R3 backend : réglages de l'optimiseur (durées par revêtement, facteur par taille d'entrée, heure de départ), `ServiceAddresses.DrivewaySize`, `globalStartTime` Google, `UnplacedCount` dans la liste des routes
+- R3 frontend : Paramètres › Routes (durées), taille d'entrée dans la fiche adresse, colonne « Ordre de passage » dans la liste, heure de retour estimée sur la page de la route
+- Optimisation Google validée par Sébastien dans son navigateur (compte de service en place, `ROUTE_OPTIMIZATION_DRY_RUN=false` sur son poste).
+
+- ⚠️ **Migrations `20260928100001-route-sequence` et `20260928100002-add-DrivewaySize-to-ServiceAddresses` à exécuter sur la DB DigitalOcean** (`npm run migrate`) si ce n'est pas déjà fait — sans elles, les tournées et les adresses plantent (colonnes absentes).
 
 Détails complets : `git log` (messages de commit en français, avec le pourquoi).
 
@@ -74,13 +80,12 @@ Migrations : `npm run migrate` dans `backend/` (la DB DigitalOcean est partagée
 
 ## Reste à faire
 
-### Chantier en cours : optimisation des routes (voir `PLAN-ROUTES-GOOGLE.md`)
-- Questions ouvertes **tranchées** (§7 du plan) : dépôt unique au 200 rue des Villas, ~50 routes × ≤100 adresses, pas d'heure limite pour l'instant, réordonnancement admin seulement, retour au point d'attache (dépôt ou point propre à la route).
-- **Phases R1 et R2 livrées** (R2 en optimiseur local). Reste à valider dans le navigateur : dépôt à saisir (Paramètres › Routes), réordonner une route, démarrer une tournée comme opérateur, tester « Naviguer » sur un téléphone.
-- Créer un **Map ID** Google (console Cloud › Map Management) et le mettre dans `googleMapsMapId` des fichiers `environment*.ts` avant la prod (sinon `DEMO_MAP_ID`).
-- **Phase R0** : préparation Google Cloud (Route Optimization API, compte de service → `backend/googleConfig/`, alerte de budget, quota), puis tester en `ROUTE_OPTIMIZATION_VALIDATE_ONLY=true` avant la première vraie requête. Attention au volume (~5 000 arrêts) : optimiser route par route, seulement quand elle change.
-- Purge serveur des coordonnées Google expirées (aujourd'hui rafraîchies seulement à l'ouverture de la page d'une route).
-- Phases R3-R5 selon le plan (R5 coûteux à ce volume, voir §7).
+### Routes : chantier essentiellement terminé (voir `PLAN-ROUTES-GOOGLE.md`)
+- Fait : R0 (Google Cloud), R1 (ordre des arrêts), R2 (optimiseur local + Google), trajet routier sur la carte, R3 (durées, taille d'entrée, départ/retour, routes à réordonner).
+- **Abandonné** (décision du 28 septembre) : R4 (découpage entre routes), R5 (heure estimée dans les SMS), purge serveur des coordonnées Google expirées (serveur de dev).
+- Reste : valider dans le navigateur la page de la route (trajet 🚜, heure de retour), Paramètres › Routes (durées), la taille d'entrée, et le parcours opérateur (« Naviguer » sur téléphone).
+- Avant la prod : **Routes API** activée et permise pour la clé du navigateur, **Map ID** Google dans `googleMapsMapId`, alerte de budget + quota sur Route Optimization et Routes API.
+- Plus tard si besoin : heures limites (`ServiceDeadline` → `timeWindows`) pour commerces/garderies.
 
 ### Autres
 - Valider visuellement le parcours opérateur complet dans le navigateur (compte Firebase avec Role="operator", route assignée, démarrer/cocher/terminer).

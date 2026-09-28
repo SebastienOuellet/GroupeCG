@@ -43,6 +43,23 @@
   </div>
 </fieldset>
 
+<fieldset class="surface-picker">
+  <legend>Taille de l'entrée <small>(durée de déneigement estimée)</small></legend>
+  <div class="surface-picker__options">
+    @for (option of sizeOptions; track option.value) {
+      <button
+        type="button"
+        class="surface-picker__chip size-chip"
+        [class.selected]="address().DrivewaySize === option.value"
+        [attr.aria-pressed]="address().DrivewaySize === option.value"
+        (click)="toggleSize(option.value)"
+      >
+        {{ option.label }}
+      </button>
+    }
+  </div>
+</fieldset>
+
 <label class="form-field address-fields__notes">
   <span>Notes (accès, bornes...)</span>
   <textarea

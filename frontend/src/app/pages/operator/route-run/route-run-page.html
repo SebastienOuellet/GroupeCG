@@ -42,7 +42,7 @@
                 }
                 <div class="stop-card__title">
                   <strong>{{ addressLabel(stop) }}</strong>
-                  <app-surface-badge [surface]="stop.Contract?.ServiceAddress?.DrivewaySurface" />
+                  <app-surface-badge [surface]="stop.Contract?.ServiceAddress?.DrivewaySurface" [size]="stop.Contract?.ServiceAddress?.DrivewaySize" />
                 </div>
                 <span>{{ clientLabel(stop) }}</span>
                 @if (stop.Contract?.ServiceAddress?.Notes; as notes) {

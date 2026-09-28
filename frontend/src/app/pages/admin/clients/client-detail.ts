@@ -155,7 +155,7 @@ export class ClientDetail implements OnInit {
   }
 
   async saveAddressEdit(address: ServiceAddress): Promise<void> {
-    const { CivicNumber, Street, City, PostalCode, PlaceId, Latitude, Longitude, DrivewaySurface, Notes } = this.editForm;
+    const { CivicNumber, Street, City, PostalCode, PlaceId, Latitude, Longitude, DrivewaySurface, DrivewaySize, Notes } = this.editForm;
     this.saving.set(true);
     this.error.set(null);
     try {
@@ -168,6 +168,7 @@ export class ClientDetail implements OnInit {
         Latitude: Latitude ?? null,
         Longitude: Longitude ?? null,
         DrivewaySurface: DrivewaySurface ?? null,
+        DrivewaySize: DrivewaySize ?? null,
         Notes: Notes ?? null
       });
       this.editingAddressId.set(null);

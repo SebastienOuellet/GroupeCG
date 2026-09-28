@@ -40,4 +40,48 @@
       <p class="form-hint">La recherche d'adresse Google n'est pas configurée (googleMapsApiKey).</p>
     }
   </div>
+
+  @if (optimization; as o) {
+    <form class="card" (ngSubmit)="saveOptimization()">
+      <h2>Durées de déneigement</h2>
+      <p class="form-hint">
+        Utilisées par l'optimiseur et pour l'heure de retour estimée. Durée d'une entrée = minutes du revêtement × facteur de taille.
+        @if (optimizationUpdatedAt(); as date) { Modifié le {{ date.slice(0, 10) }}. } @else { Valeurs par défaut. }
+      </p>
+
+      <h3 class="form-subtitle">Entrée simple, selon le revêtement (minutes)</h3>
+      <div class="form-grid">
+        @for (row of surfaceRows; track row.value) {
+          <label class="form-field">
+            <span>{{ row.label }}</span>
+            <input type="number" inputmode="decimal" min="0.5" max="120" step="0.5" [name]="'surface-' + row.value" [(ngModel)]="o.visitMinutesBySurface[row.value]" required />
+          </label>
+        }
+      </div>
+
+      <h3 class="form-subtitle">Facteur selon la taille de l'entrée</h3>
+      <div class="form-grid">
+        @for (row of sizeRows; track row.value) {
+          <label class="form-field">
+            <span>{{ row.label }} (×)</span>
+            <input type="number" inputmode="decimal" min="0.5" max="10" step="0.25" [name]="'size-' + row.value" [(ngModel)]="o.sizeFactors[row.value]" required />
+          </label>
+        }
+      </div>
+      <p class="form-hint">Exemple : gravier double = {{ exampleMinutes("gravel", "double") }} min ; pavé uni commercial = {{ exampleMinutes("pavers", "large") }} min.</p>
+
+      <h3 class="form-subtitle">Tournée</h3>
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Heure de départ habituelle</span>
+          <input type="time" name="departureTime" [(ngModel)]="o.departureTime" required />
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" [disabled]="savingOptimization()">{{ savingOptimization() ? "Enregistrement..." : "Enregistrer" }}</button>
+        <button type="button" class="btn-outline" (click)="resetOptimization()">Rétablir les valeurs par défaut</button>
+      </div>
+    </form>
+  }
 }

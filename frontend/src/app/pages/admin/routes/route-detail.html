@@ -81,6 +81,12 @@
             ·
             @if (road.status === "ready") {
               <span class="measure measure--road" title="Trajet routier (Google)">🚜 {{ roadKm(road)!.toFixed(1) }} km · {{ roadMinutes(road) }} min de route</span>
+              @if (returnTime(); as back) {
+                <br />
+                <span class="measure" title="Départ + route + déneigement (Paramètres › Routes)">
+                  🕒 Départ {{ optimizationSettings()?.departureTime }} → retour ≈ {{ back }} ({{ visitMinutes() }} min de déneigement)
+                </span>
+              }
             } @else if (road.status === "loading") {
               <span class="measure">🚜 calcul…</span>
             } @else {

@@ -120,7 +120,7 @@
           <div class="section-header section-header--sm">
             <div class="address-card__title">
               <strong>{{ addressLabel(address) }}</strong>
-              <app-surface-badge [surface]="address.DrivewaySurface" />
+              <app-surface-badge [surface]="address.DrivewaySurface" [size]="address.DrivewaySize" />
               @for (contract of addressContracts(address); track contract.Id) {
                 <a class="contract-badge contract-badge--{{ contract.Status }}" [routerLink]="['/contrats', contract.Id]" title="Ouvrir le contrat">
                   Contrat {{ contract.Reference }} · {{ contractStatusLabel(contract) }}
