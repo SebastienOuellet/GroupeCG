@@ -216,6 +216,17 @@
       color: #5a646e;
     }
 
+    &--auto {
+      border-style: dashed;
+      border-color: #fff;
+      box-shadow: 0 0 0 2px #1e7a3c;
+    }
+
+    &--here {
+      border-color: #f5b400;
+      background: #fff4cc;
+    }
+
     &--next {
       border-color: #f5b400;
       box-shadow: 0 0 0 3px rgb(245 180 0 / 0.35);

@@ -1,6 +1,6 @@
 # Plan — Géolocalisation des tracteurs (suivi en direct, « Fait » automatique)
 
-> Statut (2026-09-28) : **G1 livrée sur la branche `GPS`** (pas encore fusionnée dans `main`) ; G2 à G6 à faire. Rédigé à partir du code sur `main` (commit `776503a`, après R0-R3 de `PLAN-ROUTES-GOOGLE.md`).
+> Statut (2026-09-28) : **G1 et G2 livrées sur la branche `GPS`** (pas encore fusionnée dans `main`), plus une carte du trajet dans la vue opérateur ; G3 à G6 à faire. Rédigé à partir du code sur `main` (commit `776503a`, après R0-R3 de `PLAN-ROUTES-GOOGLE.md`).
 >
 > Pour reprendre : lire `RESUME-REPRISE.md` (état du code, démarrage, travail sur deux postes), puis ce plan. Commencer par la phase G1.
 
@@ -168,6 +168,16 @@ Migrations `Vehicles`, `VehiclePositions`, `Routes.DefaultVehicleId`, `RouteRuns
 Champs `RouteRunStops` (`ArrivedAt`, `DepartedAt`, `ServiceSeconds`, `TravelSeconds`, `DoneSource`) ; `geofence.js` ; Settings `tracking` ; affichage opérateur « Fait (auto) » + annuler.
 → *Livrable : l'opérateur n'a plus besoin de cocher ; chaque arrêt a ses vraies durées.*
 → *Vérif (trace simulée) : arrêt de 2 min → `done` + `auto_gps` + durées ; passage sans arrêt de 20 s → rien ; deux entrées voisines à 15 m → la bonne est cochée ; arrêt sauté → reste `pending` ; décocher un auto → champs GPS effacés ; positions en retard mélangées → même résultat ; `autoCompleteStops=false` → durées enregistrées, pas de « Fait ». Puis un vrai test en voiture sur 3-4 adresses.*
+
+**✅ Livrée le 2026-09-28 sur la branche `GPS`** (`925049b` backend + frontend suivant). Écarts et ajouts :
+- Migration `20260928300002-gps-stop-arrivals.cjs` : champs `RouteRunStops` du plan + `RouteRuns.GeofenceState` (JSONB) : l'état de la détection est mémorisé entre deux envois, chaque position ne sert qu'une fois.
+- `src/tracking/geofence.js` : fonction pure (testable sans base). 2 positions consécutives pour confirmer une arrivée ou un départ (filtre les sauts GPS) ; positions à plus de 100 m de précision ignorées pour la détection ; verrou de ligne sur la tournée (appareil + téléphone en même temps).
+- Une position plus vieille que la dernière traitée ne compte pas pour la détection (elle reste sur la carte). Un tampon envoyé d'un bloc est trié avant traitement.
+- `TravelSeconds` part du dernier vrai départ : un simple passage devant une adresse ne le remet pas à zéro.
+- Réglages (Paramètres › Véhicules) : Fait auto on/off, rayon, marge de sortie, durée minimale, arrêts surveillés, conservation, traînée. `PUT /setting/tracking` est partiel.
+- Vue opérateur : actualisation aux 15 s, « 📍 Sur place depuis 5 h 42 », « Fait (GPS) ✓ » avec l'heure, Annuler efface les données GPS.
+- **Ajout demandé par Sébastien : carte du trajet dans la vue opérateur.** Bascule 📋 Liste / 🗺️ Carte et trajet sur téléphone (choix mémorisé), les deux côte à côte sur grand écran. Arrêts numérotés par état, départ/retour, tracteur (position du téléphone s'il envoie, sinon la dernière reçue). Trajet routier Google par tronçon (fait en gris, prochain tronçon en évidence), calculé une seule fois par ouverture de la page (≈ 1 requête Routes API par 25 arrêts) ; lignes droites si Routes API est indisponible. Sous la carte, fiche de l'arrêt touché (ou du prochain) avec Naviguer / Passer / Fait.
+- Vérifié : 31 tests de géorepérage (dont entrées voisines, passage, tampon désordonné, envois simultanés) + 56 tests G1 relancés + 17 tests navigateur headless. **Carte Google et trajet routier non testables ici** : à valider dans ton navigateur et sur téléphone.
 
 ### Phase G3 — Suivi dans le portail client (~2 soirées)
 `GET /api/portal/tracking` ; carte et « X arrêts avant le vôtre » dans `/portail/gestion` ; réglage `portalTrackingEnabled`.

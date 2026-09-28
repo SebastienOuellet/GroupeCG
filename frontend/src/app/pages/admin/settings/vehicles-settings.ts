@@ -4,6 +4,8 @@ import { VehicleService } from "../../../core/services/vehicle.service";
 import { Vehicle, VehicleInput } from "../../../core/models/vehicle.model";
 import { timeAgo } from "../../../core/utils/time-ago";
 import { SettingsTabs } from "./settings-tabs/settings-tabs";
+import { SettingService } from "../../../core/services/setting.service";
+import { TrackingSettings } from "../../../core/models/setting.model";
 
 /** Jeton tout juste généré : montré une seule fois avec les réglages à copier dans Traccar Client. */
 interface TokenNotice {
@@ -22,6 +24,7 @@ interface TokenNotice {
 })
 export class VehiclesSettings implements OnInit {
   private readonly vehicleService = inject(VehicleService);
+  private readonly settingService = inject(SettingService);
 
   readonly vehicles = signal<Vehicle[]>([]);
   readonly loading = signal(true);
@@ -39,8 +42,50 @@ export class VehiclesSettings implements OnInit {
 
   form: VehicleInput & { Id?: number } = { Name: "" };
 
+  /** Réglages du suivi GPS (géorepérage, conservation). */
+  tracking: TrackingSettings | null = null;
+  private trackingDefaults: TrackingSettings | null = null;
+  readonly trackingUpdatedAt = signal<string | null>(null);
+  readonly savingTracking = signal(false);
+  readonly trackingInfo = signal<string | null>(null);
+
   async ngOnInit(): Promise<void> {
-    await this.load();
+    await Promise.all([this.load(), this.loadTracking()]);
+  }
+
+  private async loadTracking(): Promise<void> {
+    try {
+      const response = await this.settingService.getTrackingSettings();
+      this.setTracking(response.values, response.defaults, response.updatedAt);
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  private setTracking(values: TrackingSettings, defaults: TrackingSettings, updatedAt: string | null): void {
+    this.tracking = { ...values };
+    this.trackingDefaults = defaults;
+    this.trackingUpdatedAt.set(updatedAt);
+  }
+
+  resetTracking(): void {
+    if (this.trackingDefaults) this.tracking = { ...this.trackingDefaults };
+  }
+
+  async saveTracking(): Promise<void> {
+    if (!this.tracking) return;
+    this.savingTracking.set(true);
+    this.error.set(null);
+    this.trackingInfo.set(null);
+    try {
+      const response = await this.settingService.updateTrackingSettings(this.tracking);
+      this.setTracking(response.values, response.defaults, response.updatedAt);
+      this.trackingInfo.set("Réglages du suivi enregistrés. Ils s'appliquent aux prochaines positions reçues.");
+    } catch (e) {
+      this.error.set((e as Error).message);
+    } finally {
+      this.savingTracking.set(false);
+    }
   }
 
   async load(): Promise<void> {

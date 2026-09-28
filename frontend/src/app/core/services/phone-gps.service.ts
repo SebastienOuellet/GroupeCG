@@ -22,6 +22,8 @@ export class PhoneGpsService {
 
   readonly active = signal(false);
   readonly lastFixAt = signal<Date | null>(null);
+  /** Dernière position de ce téléphone (carte de l'opérateur, sans attendre le serveur). */
+  readonly lastFix = signal<{ lat: number; lng: number; heading: number | null; at: Date } | null>(null);
   readonly lastSentAt = signal<Date | null>(null);
   readonly error = signal<string | null>(null);
   readonly supported = typeof navigator !== "undefined" && "geolocation" in navigator;
@@ -85,6 +87,7 @@ export class PhoneGpsService {
   private onPosition(position: GeolocationPosition): void {
     const { latitude, longitude, accuracy, speed, heading } = position.coords;
     this.lastFixAt.set(new Date(position.timestamp));
+    this.lastFix.set({ lat: latitude, lng: longitude, heading: heading == null || Number.isNaN(heading) ? null : heading, at: new Date(position.timestamp) });
     this.error.set(null);
     if (accuracy > MAX_ACCURACY_M) return;
     this.buffer.push({

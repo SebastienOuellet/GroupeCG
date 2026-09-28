@@ -1,5 +1,6 @@
 import { Component, computed, DestroyRef, inject, OnInit, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { NgTemplateOutlet } from "@angular/common";
 import { ActivatedRoute, Router } from "@angular/router";
 import { RouteRunService } from "../../../core/services/route-run.service";
 import { RouteModel } from "../../../core/models/domain.model";
@@ -9,13 +10,18 @@ import { VehicleService } from "../../../core/services/vehicle.service";
 import { PhoneGpsService } from "../../../core/services/phone-gps.service";
 import { AvailableVehicle } from "../../../core/models/vehicle.model";
 import { timeAgo } from "../../../core/utils/time-ago";
+import { RunMap, RunMapPoint, RunMapStop, RunMapTractor } from "./run-map";
+import { GpsStatusCard } from "./gps-status-card";
 
-/** Rafraîchit la tournée (état du signal GPS, arrêts) pendant qu'elle est ouverte. */
-const REFRESH_MS = 30_000;
+/** Rafraîchit la tournée (signal GPS, arrêts faits automatiquement) pendant qu'elle est ouverte. */
+const REFRESH_MS = 15_000;
+const VIEW_STORAGE_KEY = "gcg-operator-view";
+
+type RunView = "list" | "map";
 
 @Component({
   selector: "app-route-run-page",
-  imports: [SurfaceBadge, FormsModule],
+  imports: [SurfaceBadge, FormsModule, RunMap, NgTemplateOutlet, GpsStatusCard],
   templateUrl: "./route-run-page.html",
   styleUrl: "./route-run-page.scss"
 })
@@ -39,6 +45,48 @@ export class RouteRunPage implements OnInit {
 
   /** Premier arrêt encore à faire, dans l'ordre figé de la tournée. */
   readonly nextStopId = computed(() => this.run()?.Stops?.find((s) => s.Status === "pending")?.Id ?? null);
+
+  /** Téléphone : liste OU carte (grand écran : les deux). Mémorisé sur l'appareil. */
+  readonly view = signal<RunView>(readView());
+  /** Départ et retour de la route (point d'attache ou dépôt). */
+  readonly endpoint = signal<RunMapPoint | null>(null);
+  /** Arrêt touché sur la carte ; null = le prochain arrêt. */
+  readonly selectedStopId = signal<number | null>(null);
+
+  readonly mapStops = computed<RunMapStop[]>(() =>
+    (this.run()?.Stops ?? [])
+      .filter((s) => s.Contract?.ServiceAddress?.Latitude != null && s.Contract?.ServiceAddress?.Longitude != null)
+      .map((s) => ({
+        id: s.Id,
+        sequence: s.Sequence,
+        status: s.Status,
+        auto: s.DoneSource === "auto_gps",
+        here: this.isHere(s),
+        label: this.addressLabel(s),
+        lat: Number(s.Contract!.ServiceAddress!.Latitude),
+        lng: Number(s.Contract!.ServiceAddress!.Longitude)
+      }))
+  );
+
+  /** Arrêts sans coordonnées : absents de la carte, signalés sous celle-ci. */
+  readonly unmappedCount = computed(() => (this.run()?.Stops?.length ?? 0) - this.mapStops().length);
+
+  /** Position la plus récente : ce téléphone (s'il envoie) ou la dernière reçue par le serveur. */
+  readonly tractor = computed<RunMapTractor | null>(() => {
+    const server = this.run()?.LastPosition ?? null;
+    const phone = this.phoneGps.active() ? this.phoneGps.lastFix() : null;
+    const serverAt = server ? new Date(server.recordedAt).getTime() : 0;
+    const stale = this.signalIsStale();
+    if (phone && phone.at.getTime() >= serverAt) return { lat: phone.lat, lng: phone.lng, heading: phone.heading, stale: false };
+    return server ? { lat: server.latitude, lng: server.longitude, heading: server.heading, stale } : null;
+  });
+
+  /** Fiche sous la carte : l'arrêt touché, sinon le prochain. */
+  readonly focusedStop = computed(() => {
+    const stops = this.run()?.Stops ?? [];
+    const id = this.selectedStopId() ?? this.nextStopId();
+    return stops.find((s) => s.Id === id) ?? null;
+  });
 
   private routeId!: number;
 
@@ -65,9 +113,15 @@ export class RouteRunPage implements OnInit {
     this.lastLoad = Date.now();
     if (scroll) this.error.set(null);
     try {
-      const { route, run } = await this.routeRunService.getCurrentRun(this.routeId);
+      const { route, run, endpoint } = await this.routeRunService.getCurrentRun(this.routeId);
       this.route.set(route);
       this.run.set(run);
+      const current = this.endpoint();
+      // Même point : garder l'objet pour ne pas relancer le calcul du trajet sur la carte
+      if (!endpoint) this.endpoint.set(null);
+      else if (!current || current.lat !== endpoint.latitude || current.lng !== endpoint.longitude) {
+        this.endpoint.set({ label: endpoint.label, lat: endpoint.latitude, lng: endpoint.longitude });
+      }
       if (scroll) this.scrollToNext("auto");
       if (run) {
         if (!this.phoneGps.active() && this.phoneGps.wasEnabledFor(run.Id)) this.phoneGps.start(run.Id);
@@ -116,7 +170,11 @@ export class RouteRunPage implements OnInit {
         // La réponse n'inclut pas le contrat : on garde celui déjà chargé
         run.Stops = run.Stops.map((s) => (s.Id === updated.Id ? { ...s, ...updated, Contract: s.Contract } : s));
         this.run.set({ ...run });
-        if (status !== "pending") this.scrollToNext("smooth");
+        if (status !== "pending") {
+          this.scrollToNext("smooth");
+          // Sur la carte, la fiche passe d'elle-même au prochain arrêt
+          if (this.selectedStopId() === stop.Id) this.selectedStopId.set(null);
+        }
       }
     } catch (e) {
       this.error.set((e as Error).message);
@@ -160,6 +218,29 @@ export class RouteRunPage implements OnInit {
     // Un pin corrigé à la main prime : le place_id ramènerait l'adresse Google (souvent le bord du chemin)
     if (a.PlaceId && a.LocationSource !== "manual_pin") params.set("destination_place_id", a.PlaceId);
     return `https://www.google.com/maps/dir/?${params.toString()}`;
+  }
+
+  setView(view: RunView): void {
+    this.view.set(view);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, view);
+    } catch {
+      /* stockage indisponible : le choix vaut pour cette visite */
+    }
+    if (view === "list") this.scrollToNext("auto");
+  }
+
+  selectStop(id: number): void {
+    this.selectedStopId.set(id === this.nextStopId() ? null : id);
+  }
+
+  /** Tracteur dans l'entrée en ce moment (détecté par GPS, pas encore reparti). */
+  isHere(stop: RouteRunStop): boolean {
+    return stop.Status === "pending" && !!stop.ArrivedAt && !stop.DepartedAt;
+  }
+
+  clock(value: string | null): string {
+    return value ? new Date(value).toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" }) : "";
   }
 
   togglePhoneGps(enabled: boolean): void {
@@ -207,5 +288,13 @@ export class RouteRunPage implements OnInit {
 
   get totalCount(): number {
     return this.run()?.Stops?.length ?? 0;
+  }
+}
+
+function readView(): RunView {
+  try {
+    return localStorage.getItem(VIEW_STORAGE_KEY) === "map" ? "map" : "list";
+  } catch {
+    return "list";
   }
 }

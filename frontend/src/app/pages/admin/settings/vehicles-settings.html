@@ -133,3 +133,56 @@
     {{ showInactive() ? "Masquer les tracteurs désactivés" : "Afficher les tracteurs désactivés" }}
   </button>
 </div>
+
+@if (tracking; as t) {
+  <form class="card" (ngSubmit)="saveTracking()">
+    <h2>Suivi GPS et « Fait » automatique</h2>
+    <p class="form-hint">
+      Un arrêt est marqué fait quand le tracteur reste dans le rayon de l'adresse au moins la durée minimale, puis en ressort.
+      Les heures d'arrivée et de départ sont enregistrées dans tous les cas : elles serviront à régler les durées de déneigement.
+      @if (trackingUpdatedAt(); as date) { Modifié le {{ date.slice(0, 10) }}. } @else { Valeurs par défaut. }
+    </p>
+    @if (trackingInfo()) {
+      <div class="info-banner">{{ trackingInfo() }}</div>
+    }
+    <label class="form-field form-field--checkbox" style="margin-bottom: 1rem">
+      <input type="checkbox" name="autoCompleteStops" [(ngModel)]="t.autoCompleteStops" />
+      <span>Marquer « Fait » automatiquement quand le tracteur repart d'une entrée</span>
+    </label>
+    <div class="form-grid">
+      <label class="form-field">
+        <span>Rayon d'arrivée (m)</span>
+        <input type="number" name="geofenceRadiusM" min="10" max="200" step="1" [(ngModel)]="t.geofenceRadiusM" required />
+        <small class="form-hint">Distance du pin où le tracteur est « arrivé ». Plus grand en rang (pin moins précis).</small>
+      </label>
+      <label class="form-field">
+        <span>Marge de sortie (m)</span>
+        <input type="number" name="exitMarginM" min="5" max="200" step="1" [(ngModel)]="t.exitMarginM" required />
+        <small class="form-hint">Reparti au-delà de rayon + marge : évite les faux départs au bord de l'entrée.</small>
+      </label>
+      <label class="form-field">
+        <span>Durée minimale (s)</span>
+        <input type="number" name="minDwellSeconds" min="10" max="1800" step="5" [(ngModel)]="t.minDwellSeconds" required />
+        <small class="form-hint">En dessous, c'est un simple passage devant l'adresse.</small>
+      </label>
+      <label class="form-field">
+        <span>Prochains arrêts surveillés</span>
+        <input type="number" name="lookaheadStops" min="1" max="10" step="1" [(ngModel)]="t.lookaheadStops" required />
+        <small class="form-hint">Seuls les N prochains arrêts à faire peuvent être détectés (entrées voisines).</small>
+      </label>
+      <label class="form-field">
+        <span>Conservation des positions (jours)</span>
+        <input type="number" name="positionRetentionDays" min="1" max="365" step="1" [(ngModel)]="t.positionRetentionDays" required />
+        <small class="form-hint">Traces GPS brutes purgées ensuite (Loi 25). Les durées par arrêt restent.</small>
+      </label>
+      <label class="form-field">
+        <span>Traînée sur la carte (min)</span>
+        <input type="number" name="liveTrailMinutes" min="5" max="240" step="5" [(ngModel)]="t.liveTrailMinutes" required />
+      </label>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn-primary" [disabled]="savingTracking()">{{ savingTracking() ? "Enregistrement..." : "Enregistrer" }}</button>
+      <button type="button" class="btn-outline" (click)="resetTracking()">Valeurs par défaut</button>
+    </div>
+  </form>
+}

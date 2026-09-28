@@ -214,7 +214,7 @@ export class LiveTracking implements OnInit {
           this.stopMarkers.set(stop.id, marker);
         }
         marker.content = this.stopElement(stop, stop.id === next?.id);
-        marker.title = `${stop.sequence}. ${address.label}${stop.status === "done" ? " — fait" : stop.status === "skipped" ? " — passé" : ""}`;
+        marker.title = `${stop.sequence}. ${address.label}${stop.status === "done" ? (stop.doneSource === "auto_gps" ? " — fait (GPS)" : " — fait") : stop.status === "skipped" ? " — passé" : stop.arrivedAt ? " — tracteur sur place" : ""}`;
         marker.zIndex = stop.id === next?.id ? 1500 : stop.sequence;
         marker.map = map;
       }
@@ -242,7 +242,8 @@ export class LiveTracking implements OnInit {
 
   private stopElement(stop: LiveStop, isNext: boolean): HTMLElement {
     const el = document.createElement("div");
-    el.className = `stop-dot stop-dot--${stop.status}${isNext ? " stop-dot--next" : ""}`;
+    const here = stop.status === "pending" && !!stop.arrivedAt;
+    el.className = `stop-dot stop-dot--${stop.status}${stop.doneSource === "auto_gps" ? " stop-dot--auto" : ""}${here ? " stop-dot--here" : ""}${isNext ? " stop-dot--next" : ""}`;
     el.textContent = String(stop.sequence);
     return el;
   }

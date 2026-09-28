@@ -36,6 +36,11 @@ export interface DrivingRoute {
   durationSeconds: number;
 }
 
+/** Trajet routier découpé par tronçon : le tronçon i va du point i au point i + 1. */
+export interface DrivingLegs {
+  legs: { path: LatLng[]; distanceMeters: number; durationSeconds: number }[];
+}
+
 /** Routes API : 25 points intermédiaires max par requête (+ origine + destination). */
 const MAX_INTERMEDIATES = 25;
 
@@ -189,6 +194,43 @@ export class GoogleMapsService {
       path: results.flatMap((r) => (r.path ?? []).map((p) => ({ lat: p.lat, lng: p.lng }))),
       distanceMeters: results.reduce((sum, r) => sum + (r.distanceMeters ?? 0), 0),
       durationSeconds: Math.round(results.reduce((sum, r) => sum + (r.durationMillis ?? 0), 0) / 1000)
+    };
+  }
+
+  /**
+   * Même trajet que computeDrivingRoute, mais un tracé par tronçon (arrêt → arrêt suivant),
+   * pour griser ce qui est fait et faire ressortir le prochain tronçon. Même coût en requêtes.
+   */
+  async computeDrivingLegs(points: LatLng[]): Promise<DrivingLegs> {
+    this.ensureOptions();
+    const { Route } = await importLibrary("routes");
+    const chunks: LatLng[][] = [];
+    for (let i = 0; i < points.length - 1; i += MAX_INTERMEDIATES + 1) {
+      chunks.push(points.slice(i, i + MAX_INTERMEDIATES + 2));
+    }
+    const results = await Promise.all(
+      chunks.map(async (chunk) => {
+        const { routes } = await Route.computeRoutes({
+          origin: chunk[0],
+          destination: chunk[chunk.length - 1],
+          intermediates: chunk.slice(1, -1).map((location) => ({ location })),
+          travelMode: "DRIVING",
+          polylineQuality: "OVERVIEW",
+          language: LANGUAGE,
+          region: "ca",
+          fields: ["legs"]
+        });
+        const legs = routes?.[0]?.legs;
+        if (!legs || legs.length !== chunk.length - 1) throw new Error("trajet incomplet renvoyé par Google");
+        return legs;
+      })
+    );
+    return {
+      legs: results.flat().map((leg) => ({
+        path: (leg.path ?? []).map((p) => ({ lat: p.lat, lng: p.lng })),
+        distanceMeters: leg.distanceMeters ?? 0,
+        durationSeconds: Math.round((leg.durationMillis ?? 0) / 1000)
+      }))
     };
   }
 

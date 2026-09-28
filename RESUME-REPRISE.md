@@ -11,7 +11,7 @@ https://github.com/SebastienOuellet/GroupeCG (branche `main`)
 | `RESUME-REPRISE.md` | Ce fichier : état actuel, démarrage, reste à faire, règles de travail |
 | `PLAN-ORIGINAL.md` | Plan initial (phases 1-5), **entièrement implémenté** — référence du modèle de données et des décisions |
 | `PLAN-ROUTES-GOOGLE.md` | Chantier en cours : optimisation des routes avec Google Route Optimization API — **R1 (ordre des arrêts) livrée**, R0/R2+ à faire |
-| `PLAN-GPS-TRACTEURS.md` | Chantier en cours sur la branche **`GPS`** : géolocalisation des tracteurs — **G1 (réception des positions, carte `/suivi`) livrée**, G2+ à faire |
+| `PLAN-GPS-TRACTEURS.md` | Chantier en cours sur la branche **`GPS`** : géolocalisation des tracteurs — **G1 (positions, carte `/suivi`) et G2 (« Fait » automatique, carte du trajet opérateur) livrées**, G3+ à faire |
 
 Ces fichiers sont aussi copiés dans les docs du projet claude.ai « GroupeCG ». **Le repo fait foi** : en cas d'écart, c'est la version sur `main` qui est la bonne.
 
@@ -90,9 +90,11 @@ Migrations : `npm run migrate` dans `backend/` (la DB DigitalOcean est partagée
 
 ### Géolocalisation des tracteurs (voir `PLAN-GPS-TRACTEURS.md`)
 - **Branche `GPS`** (pas encore dans `main`). G1 livrée : véhicules et jetons (Paramètres › Véhicules), réception OsmAnd (Traccar Client / ESP32), GPS du téléphone en repli, page `/suivi`, choix du tracteur au démarrage, purge nocturne des positions.
-- ⚠️ Migration `20260928300001-gps-vehicles-positions` à exécuter sur la DB DigitalOcean avant de tester la branche (`npm run migrate`). Sur `main` sans la branche, cette migration n'existe pas : ne pas l'exécuter depuis `main`.
+- G2 : arrivées/départs détectés par GPS, « Fait » automatique (réglable dans Paramètres › Véhicules), durées réelles par arrêt ; carte du trajet dans la vue opérateur (bascule Liste / Carte).
+- ⚠️ Migrations `20260928300001-gps-vehicles-positions` et `20260928300002-gps-stop-arrivals` à exécuter sur la DB DigitalOcean avant de tester la branche (`npm run migrate`). Elles n'existent pas sur `main` : ne pas lancer `migrate` depuis `main` ensuite sans la branche.
 - À valider dans le navigateur : la carte Google de `/suivi` (non testable depuis le poste de Claude), Traccar Client sur un téléphone (URL publique du serveur requise, ou tunnel ngrok).
-- Suite : G2 (« Fait » automatique par zone autour de l'adresse + collecte des durées réelles).
+- À valider sur le terrain : la carte et le trajet de la vue opérateur (Routes API), un vrai « Fait » automatique en voiture (rayon 35 m, 45 s minimum).
+- Suite : G3 (suivi du tracteur dans le portail client).
 - V1 = G1 + G2 (« Fait » automatique) + G3 (suivi dans le portail). Pas de SMS automatique d'arrivée avant d'avoir calibré les durées (G4).
 
 ### Autres

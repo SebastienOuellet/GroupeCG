@@ -22,6 +22,9 @@ export interface LiveStop {
   sequence: number;
   status: "pending" | "done" | "skipped";
   doneAt: string | null;
+  doneSource: "manual" | "auto_gps" | null;
+  /** Tracteur dans l'entrée depuis (arrêt encore à faire). */
+  arrivedAt: string | null;
   reference: string | null;
   address: { label: string; city: string; latitude: number | null; longitude: number | null } | null;
 }
