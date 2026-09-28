@@ -16,7 +16,7 @@ import db from "../models/index.js";
 import * as clientService from "../src/components/client/client.service.js";
 import * as contractService from "../src/components/contract/contract.service.js";
 import { CONTRACT_STATUS } from "../src/components/contract/contract.constants.js";
-import { DRIVEWAY_SURFACES } from "../src/components/serviceAddress/serviceAddress.constants.js";
+import { DRIVEWAY_SIZES, DRIVEWAY_SURFACES } from "../src/components/serviceAddress/serviceAddress.constants.js";
 import { NodeEnv } from "../src/enum/NodeEnv.js";
 
 const { Route, Client, ServiceAddress, sequelize, Sequelize } = db;
@@ -112,7 +112,8 @@ const createTestData = async () => {
         Street: street,
         City: CITY,
         PostalCode: postal,
-        DrivewaySurface: DRIVEWAY_SURFACES[Math.floor(random() * DRIVEWAY_SURFACES.length)]
+        DrivewaySurface: DRIVEWAY_SURFACES[Math.floor(random() * DRIVEWAY_SURFACES.length)],
+        DrivewaySize: DRIVEWAY_SIZES[Math.floor(random() * DRIVEWAY_SIZES.length)]
       }
     });
     const address = await ServiceAddress.findOne({ where: { ClientId: client.Id } });

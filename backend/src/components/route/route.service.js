@@ -3,7 +3,7 @@ import { BadRequestError, NotFoundError } from "../../errors/Errors.js";
 import { USER_ROLES } from "../user/user.constants.js";
 import { logger } from "../../config/logger.js";
 import { keepLocationDateIfUnchanged, normalizeNamedLocation } from "../../shared/location.js";
-import { MAX_ROUTE_SEQUENCE_LENGTH, ROUTE_SEQUENCE_SOURCE } from "./route.constants.js";
+import { MAX_ROUTE_SEQUENCE_LENGTH, ROUTE_ORDERABLE_CONTRACT_STATUSES, ROUTE_SEQUENCE_SOURCE } from "./route.constants.js";
 
 const { Route, Contract, Client, ServiceAddress, User, sequelize } = db;
 
@@ -32,8 +32,13 @@ export const getRoutes = async ({ includeInactive = false } = {}) => {
   if (!includeInactive) {
     where.IsActive = true;
   }
+  // Contrats « à placer » (ajoutés depuis le dernier ordre) : la liste suggère de réordonner
+  const unplacedCount = sequelize.literal(
+    `(SELECT COUNT(*)::int FROM "Contracts" c WHERE c."RouteId" = "Route"."Id" AND c."RouteSequence" IS NULL AND c."Status" IN (${ROUTE_ORDERABLE_CONTRACT_STATUSES.map((s) => sequelize.escape(s)).join(", ")}))`
+  );
   return Route.findAll({
     where,
+    attributes: { include: [[unplacedCount, "UnplacedCount"]] },
     include: routeInclude,
     order: [["SortOrder", "ASC"], ["Name", "ASC"]]
   });

@@ -1,5 +1,5 @@
 import { DataTypes } from "sequelize";
-import { DRIVEWAY_SURFACES, LOCATION_SOURCES } from "./serviceAddress.constants.js";
+import { DRIVEWAY_SIZES, DRIVEWAY_SURFACES, LOCATION_SOURCES } from "./serviceAddress.constants.js";
 
 export default (sequelize) => {
   const ServiceAddress = sequelize.define(
@@ -63,6 +63,13 @@ export default (sequelize) => {
         // "" venant d'un formulaire = non précisé
         set(value) {
           this.setDataValue("DrivewaySurface", value || null);
+        }
+      },
+      DrivewaySize: {
+        type: DataTypes.STRING(20),
+        validate: { isIn: [DRIVEWAY_SIZES] },
+        set(value) {
+          this.setDataValue("DrivewaySize", value || null);
         }
       },
       Notes: {

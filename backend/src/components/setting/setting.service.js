@@ -6,6 +6,7 @@ import { CONTRACT_TERMS_RULES, DEFAULT_CONTRACT_TERMS } from "../../documents/co
 import { buildContractPdf } from "../../documents/contractPdf.js";
 import { computeTotals } from "../invoice/invoice.money.js";
 import { keepLocationDateIfUnchanged, normalizeNamedLocation } from "../../shared/location.js";
+import { DEFAULT_ROUTE_OPTIMIZATION_SETTINGS, ROUTE_OPTIMIZATION_LIMITS } from "../route/route.constants.js";
 
 const { Setting } = db;
 
@@ -140,4 +141,64 @@ export const updateRouteDepot = async (input, userId = null) => {
   await row.save();
   logger.info(`Dépôt des routes modifié | par utilisateur #${userId ?? "?"} | ${value.label}`);
   return getRouteDepot();
+};
+
+/* ------------------------------------------------------------------ */
+/* Paramètres de l'optimiseur                                          */
+/* ------------------------------------------------------------------ */
+
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Défauts du code, surchargés clé par clé par ce que l'admin a enregistré. */
+const mergeOptimizationSettings = (stored = {}) => {
+  const defaults = DEFAULT_ROUTE_OPTIMIZATION_SETTINGS;
+  return {
+    visitMinutesBySurface: { ...defaults.visitMinutesBySurface, ...pick(stored.visitMinutesBySurface, defaults.visitMinutesBySurface) },
+    sizeFactors: { ...defaults.sizeFactors, ...pick(stored.sizeFactors, defaults.sizeFactors) },
+    departureTime: stored.departureTime ?? defaults.departureTime
+  };
+};
+
+/** Seulement les clés connues (une clé retirée du code disparaît d'elle-même). */
+const pick = (values, reference) =>
+  Object.fromEntries(Object.entries(values ?? {}).filter(([key]) => key in reference));
+
+export const getRouteOptimizationSettings = async () => {
+  const row = await Setting.findOne({ where: { Key: SETTING_KEYS.ROUTE_OPTIMIZATION } });
+  return { values: mergeOptimizationSettings(row?.Value), defaults: DEFAULT_ROUTE_OPTIMIZATION_SETTINGS, updatedAt: row?.updatedAt ?? null };
+};
+
+const validateNumbers = (input, reference, { min, max }, label) => {
+  const values = {};
+  for (const key of Object.keys(reference)) {
+    const number = Number(input?.[key]);
+    if (input?.[key] === undefined || input?.[key] === null || input?.[key] === "" || !Number.isFinite(number) || number < min || number > max) {
+      throw new BadRequestError(`${label} « ${key} » : doit être entre ${min} et ${max}.`);
+    }
+    values[key] = Math.round(number * 100) / 100;
+  }
+  return values;
+};
+
+export const updateRouteOptimizationSettings = async (input, userId = null) => {
+  const defaults = DEFAULT_ROUTE_OPTIMIZATION_SETTINGS;
+  const departureTime = String(input?.departureTime ?? "").trim();
+  if (!TIME_PATTERN.test(departureTime)) {
+    throw new BadRequestError("Heure de départ invalide (format HH:MM, ex. 03:30).");
+  }
+  const values = {
+    visitMinutesBySurface: validateNumbers(input?.visitMinutesBySurface, defaults.visitMinutesBySurface, ROUTE_OPTIMIZATION_LIMITS.visitMinutes, "Durée"),
+    sizeFactors: validateNumbers(input?.sizeFactors, defaults.sizeFactors, ROUTE_OPTIMIZATION_LIMITS.sizeFactor, "Facteur de taille"),
+    departureTime
+  };
+  const [row] = await Setting.findOrCreate({
+    where: { Key: SETTING_KEYS.ROUTE_OPTIMIZATION },
+    defaults: { Value: values, UpdatedByUserId: userId }
+  });
+  row.Value = values;
+  row.UpdatedByUserId = userId;
+  row.changed("Value", true);
+  await row.save();
+  logger.info(`Paramètres de l'optimiseur modifiés | par utilisateur #${userId ?? "?"} | ${JSON.stringify(values)}`);
+  return getRouteOptimizationSettings();
 };

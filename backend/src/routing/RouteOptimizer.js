@@ -3,6 +3,7 @@
  *
  * Entrée `optimize({ start, end, stops })` :
  *  - start / end : { latitude, longitude, placeId? } — départ et retour (dépôt ou point d'attache)
+ *  - startTime : Date de départ de la tournée (optionnelle ; Google s'en sert pour ses horaires)
  *  - stops : [{ id, latitude?, longitude?, placeId?, visitSeconds }] — `id` = ContractId.
  *    Minimisation Loi 25 : aucune donnée nominative ne doit entrer ici.
  *

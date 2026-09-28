@@ -11,6 +11,7 @@ const CREDENTIALS_DIR = path.resolve(__dirname, "../../googleConfig");
 /** Poids relatifs pour le solveur : surtout minimiser les km, puis le temps. */
 const COST_PER_KILOMETER = 1;
 const COST_PER_HOUR = 30;
+const GLOBAL_WINDOW_SECONDS = 24 * 60 * 60;
 
 const toLatLng = (point) => ({ latitude: point.latitude, longitude: point.longitude });
 
@@ -31,13 +32,20 @@ const secondsOf = (duration) => Number(duration?.seconds ?? 0) + Number(duration
  * (placeId ou lat/lng), des durées et `label = ContractId` — jamais de nom, courriel,
  * téléphone ni numéro de client. Exportée pour être inspectée par les tests.
  */
-export const buildOptimizeToursRequest = ({ projectId, start, end, stops, timeoutSeconds, validateOnly = false, vehicleLabel = "route" }) => ({
+export const buildOptimizeToursRequest = ({ projectId, start, end, stops, timeoutSeconds, validateOnly = false, vehicleLabel = "route", startTime = null }) => ({
   parent: `projects/${projectId}`,
   timeout: { seconds: timeoutSeconds },
   solvingMode: validateOnly ? "VALIDATE_ONLY" : "DEFAULT_SOLVE",
   considerRoadTraffic: false,
   populatePolylines: false,
   model: {
+    // Heure de départ réelle de la tournée (ex. 3 h 30) ; fenêtre de 24 h pour tout faire
+    ...(startTime
+      ? {
+        globalStartTime: { seconds: Math.floor(startTime.getTime() / 1000) },
+        globalEndTime: { seconds: Math.floor(startTime.getTime() / 1000) + GLOBAL_WINDOW_SECONDS }
+      }
+      : {}),
     shipments: stops.map((stop) => ({
       label: String(stop.id),
       deliveries: [{ arrivalWaypoint: toWaypoint(stop), duration: { seconds: stop.visitSeconds ?? 0 } }]
@@ -87,7 +95,7 @@ export class GoogleRouteOptimizer extends RouteOptimizer {
     return this.client;
   }
 
-  async optimize({ start, end, stops, routeId }) {
+  async optimize({ start, end, stops, routeId, startTime = null }) {
     const skipped = stops.filter((s) => !s.placeId && !hasCoordinates(s)).map((s) => ({ id: s.id, reason: "Ni PlaceId ni coordonnées" }));
     const usable = stops.filter((s) => s.placeId || hasCoordinates(s));
     if (usable.length === 0) {
@@ -101,7 +109,8 @@ export class GoogleRouteOptimizer extends RouteOptimizer {
       stops: usable,
       timeoutSeconds: this.timeoutSeconds,
       validateOnly: this.validateOnly,
-      vehicleLabel: routeId ? `route-${routeId}` : "route"
+      vehicleLabel: routeId ? `route-${routeId}` : "route",
+      startTime
     });
 
     const client = await this.getClient();

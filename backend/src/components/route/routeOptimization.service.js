@@ -3,15 +3,13 @@ import { BadRequestError, NotFoundError } from "../../errors/Errors.js";
 import { logger } from "../../config/logger.js";
 import { getRouteOptimizer } from "../../routing/routeOptimizerFactory.js";
 import { pathKm } from "../../routing/geo.js";
-import { getRouteDepot } from "../setting/setting.service.js";
-import { LOCATION_SOURCE } from "../serviceAddress/serviceAddress.constants.js";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import { getRouteDepot, getRouteOptimizationSettings } from "../setting/setting.service.js";
+import { DRIVEWAY_SIZE, LOCATION_SOURCE } from "../serviceAddress/serviceAddress.constants.js";
 import { ROUTE_CONTRACT_ORDER, updateRouteSequence } from "./route.service.js";
-import {
-  DEFAULT_VISIT_SECONDS,
-  DEFAULT_VISIT_SECONDS_BY_SURFACE,
-  ROUTE_ORDERABLE_CONTRACT_STATUSES,
-  ROUTE_SEQUENCE_SOURCE
-} from "./route.constants.js";
+import { ROUTE_ORDERABLE_CONTRACT_STATUSES, ROUTE_SEQUENCE_SOURCE, UNKNOWN_SURFACE } from "./route.constants.js";
+
+const TIME_ZONE = "America/Toronto";
 
 const { Route, Contract, ServiceAddress } = db;
 
@@ -29,8 +27,29 @@ const resolveEndpoint = async (route) => {
   };
 };
 
+/** Durée de déneigement d'une entrée : minutes du revêtement × facteur de taille (réglages admin). */
+export const visitSecondsFor = (address, settings) => {
+  const minutes = settings.visitMinutesBySurface[address?.DrivewaySurface] ?? settings.visitMinutesBySurface[UNKNOWN_SURFACE];
+  const factor = settings.sizeFactors[address?.DrivewaySize] ?? settings.sizeFactors[DRIVEWAY_SIZE.SINGLE];
+  return Math.round(minutes * factor * 60);
+};
+
+/** Prochaine occurrence de l'heure de départ (HH:MM, heure de l'Est) : tempête de la nuit qui vient. */
+export const nextDeparture = (departureTime, now = new Date()) => {
+  const local = toZonedTime(now, TIME_ZONE);
+  const day = `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, "0")}-${String(local.getDate()).padStart(2, "0")}`;
+  let start = fromZonedTime(`${day}T${departureTime}:00`, TIME_ZONE);
+  if (start <= now) start = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return start;
+};
+
+const clockTime = (date) => {
+  const local = toZonedTime(date, TIME_ZONE);
+  return `${String(local.getHours()).padStart(2, "0")}:${String(local.getMinutes()).padStart(2, "0")}`;
+};
+
 /** Arrêt transmis à l'optimiseur : lieu, durée, ContractId. Rien de nominatif (Loi 25). */
-const toStop = (contract) => {
+const toStop = (contract, settings) => {
   const address = contract.ServiceAddress;
   return {
     id: contract.Id,
@@ -38,7 +57,7 @@ const toStop = (contract) => {
     longitude: toNumber(address.Longitude),
     placeId: address.PlaceId ?? null,
     manualPin: address.LocationSource === LOCATION_SOURCE.MANUAL_PIN,
-    visitSeconds: DEFAULT_VISIT_SECONDS_BY_SURFACE[address.DrivewaySurface] ?? DEFAULT_VISIT_SECONDS
+    visitSeconds: visitSecondsFor(address, settings)
   };
 };
 
@@ -74,10 +93,12 @@ export const optimizeRoute = async (routeId, { seasonYear } = {}) => {
     throw new BadRequestError("Il faut au moins 2 arrêts sur la route pour cette saison.");
   }
 
-  const stops = contracts.map(toStop);
+  const { values: settings } = await getRouteOptimizationSettings();
+  const stops = contracts.map((contract) => toStop(contract, settings));
+  const departure = nextDeparture(settings.departureTime);
   const optimizer = getRouteOptimizer();
   const startedAt = Date.now();
-  const result = await optimizer.optimize({ start: endpoint.point, end: endpoint.point, stops, routeId: route.Id });
+  const result = await optimizer.optimize({ start: endpoint.point, end: endpoint.point, stops, routeId: route.Id, startTime: departure });
   const elapsedMs = Date.now() - startedAt;
 
   // Comparaison équitable : même mesure (vol d'oiseau) pour l'ordre actuel et l'ordre proposé
@@ -109,6 +130,9 @@ export const optimizeRoute = async (routeId, { seasonYear } = {}) => {
       distanceKm: round1(result.distanceKm),
       durationMinutes: result.durationMinutes
     },
+    departureTime: settings.departureTime,
+    returnTime: result.durationMinutes != null ? clockTime(new Date(departure.getTime() + result.durationMinutes * 60000)) : null,
+    visitMinutes: Math.round(proposedStops.reduce((sum, s) => sum + s.visitSeconds, 0) / 60),
     elapsedMs
   };
 };

@@ -9,6 +9,16 @@ export const DRIVEWAY_SURFACE = {
 
 export const DRIVEWAY_SURFACES = Object.values(DRIVEWAY_SURFACE);
 
+/** Taille de l'entrée : multiplie la durée de déneigement estimée (facteurs réglables, Paramètres › Routes). */
+export const DRIVEWAY_SIZE = {
+  SINGLE: "single",
+  DOUBLE: "double",
+  TRIPLE: "triple",
+  LARGE: "large"
+};
+
+export const DRIVEWAY_SIZES = Object.values(DRIVEWAY_SIZE);
+
 /**
  * Provenance des coordonnées. Google (autocomplete ou recherche texte) : cache daté,
  * seul le PlaceId est stockable indéfiniment. Pin corrigé à la main : notre propre donnée.
