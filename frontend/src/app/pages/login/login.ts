@@ -2,6 +2,7 @@ import { Component, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { AuthStore } from "../../core/auth/auth.store";
+import { requestedReturnUrl } from "../../core/auth/auth-redirect";
 
 @Component({
   selector: "app-login",
@@ -25,7 +26,8 @@ export class Login {
     this.loading.set(true);
     try {
       await this.authStore.login(this.email, this.password);
-      await this.router.navigate(["/"]);
+      // Retour à la page demandée avant la redirection vers /login.
+      await this.router.navigateByUrl(requestedReturnUrl(this.router) ?? "/");
     } catch {
       this.error.set("Courriel ou mot de passe invalide.");
     } finally {

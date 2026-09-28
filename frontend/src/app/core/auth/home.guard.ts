@@ -2,7 +2,7 @@ import { inject } from "@angular/core";
 import { CanMatchFn, Router } from "@angular/router";
 import { AuthStore } from "./auth.store";
 import { UserService } from "../user.service";
-import { PENDING_ACCESS_PATH } from "./role.guard";
+import { ensureDbUser, loginRedirect, PENDING_ACCESS_PATH, pendingAccessRedirect } from "./auth-redirect";
 
 /**
  * Garde du "/" racine: redirige selon le rôle plutôt que vers /login,
@@ -15,12 +15,10 @@ export const homeGuard: CanMatchFn = async () => {
   const userService = inject(UserService);
   const router = inject(Router);
 
-  if (!authStore.dbUser()) {
-    try {
-      authStore.setDbUser(await userService.getMe());
-    } catch {
-      return router.createUrlTree(["/login"]);
-    }
+  if (!(await ensureDbUser(authStore, userService))) {
+    // Profil injoignable : ne pas passer par /login (guestGuard renverrait vers "/"
+    // et on perdrait la page demandée), mais vers une page qui permet de réessayer.
+    return authStore.isAuthenticated() ? pendingAccessRedirect(router) : loginRedirect(router);
   }
 
   const role = authStore.role();

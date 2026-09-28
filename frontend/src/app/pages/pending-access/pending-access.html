@@ -2,21 +2,28 @@
   <div class="login-card">
     <img class="login-card__logo" src="images/logo.png" alt="Groupe CG" />
 
-    <h2 style="margin: 0; font-size: 1.125rem; color: var(--color-primary)">Compte en attente d'approbation</h2>
-    <p style="margin: 0; font-size: 0.875rem; color: #5a646e">
-      Votre compte
-      @if (email) {
-        <strong>{{ email }}</strong>
-      }
-      est bien créé, mais aucun rôle ne lui a encore été attribué. Un administrateur doit vous donner accès.
-    </p>
+    @if (unreachable()) {
+      <h2 style="margin: 0; font-size: 1.125rem; color: var(--color-primary)">Serveur injoignable</h2>
+      <p style="margin: 0; font-size: 0.875rem; color: #5a646e">
+        Votre profil n'a pas pu être chargé. Vérifiez votre connexion, puis réessayez : vous reviendrez à la page demandée.
+      </p>
+    } @else {
+      <h2 style="margin: 0; font-size: 1.125rem; color: var(--color-primary)">Compte en attente d'approbation</h2>
+      <p style="margin: 0; font-size: 0.875rem; color: #5a646e">
+        Votre compte
+        @if (email) {
+          <strong>{{ email }}</strong>
+        }
+        est bien créé, mais aucun rôle ne lui a encore été attribué. Un administrateur doit vous donner accès.
+      </p>
+    }
 
     @if (message()) {
       <p class="login-card__warning">{{ message() }}</p>
     }
 
     <button type="button" class="btn-primary" [disabled]="checking()" (click)="recheck()">
-      {{ checking() ? "Vérification..." : "Vérifier à nouveau" }}
+      {{ checking() ? "Vérification..." : unreachable() ? "Réessayer" : "Vérifier à nouveau" }}
     </button>
     <button type="button" class="btn-outline" (click)="logout()">Déconnexion</button>
   </div>

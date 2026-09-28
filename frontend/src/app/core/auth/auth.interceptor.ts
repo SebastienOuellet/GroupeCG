@@ -9,6 +9,7 @@ import {
 import { Router } from "@angular/router";
 import { catchError, from, switchMap, throwError } from "rxjs";
 import { AuthStore } from "./auth.store";
+import { loginRedirect } from "./auth-redirect";
 
 /**
  * Ajoute le Bearer token Firebase à chaque requête, en le rafraîchissant au besoin.
@@ -33,7 +34,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       return sendWithToken(req, next, authStore, true).pipe(
         catchError((retryError: unknown) => {
           if (isUnauthorized(retryError)) {
-            void authStore.logout().then(() => router.navigate(["/login"]));
+            void authStore.logout().then(() => router.navigateByUrl(loginRedirect(router, router.url)));
           }
           return throwError(() => retryError);
         })

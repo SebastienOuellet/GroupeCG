@@ -1,6 +1,7 @@
 import { inject } from "@angular/core";
 import { CanMatchFn, Router } from "@angular/router";
 import { AuthStore } from "./auth.store";
+import { loginRedirect, requestedReturnUrl } from "./auth-redirect";
 
 export const authGuard: CanMatchFn = async () => {
   const authStore = inject(AuthStore);
@@ -12,7 +13,7 @@ export const authGuard: CanMatchFn = async () => {
     return true;
   }
 
-  return router.createUrlTree(["/login"]);
+  return loginRedirect(router);
 };
 
 export const guestGuard: CanMatchFn = async () => {
@@ -25,7 +26,8 @@ export const guestGuard: CanMatchFn = async () => {
     return true;
   }
 
-  return router.createUrlTree(["/"]);
+  // Déjà connecté (ex. session restaurée pendant la redirection) : retour à la page demandée.
+  return router.parseUrl(requestedReturnUrl(router) ?? "/");
 };
 
 const waitForAuthInit = (authStore: AuthStore): Promise<void> => {
