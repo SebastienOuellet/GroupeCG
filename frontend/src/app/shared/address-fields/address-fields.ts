@@ -49,6 +49,7 @@ export class AddressFields implements OnInit {
       if (LOCATION_FIELDS.includes(field) && a.Latitude != null) {
         next.Latitude = null;
         next.Longitude = null;
+        next.PlaceId = null;
       }
       return next;
     });

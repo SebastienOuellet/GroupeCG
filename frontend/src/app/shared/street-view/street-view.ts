@@ -1,5 +1,5 @@
 import { Component, ElementRef, effect, inject, input, output, signal, untracked, viewChild } from "@angular/core";
-import { GoogleMapsService, LatLng } from "../../core/services/google-maps.service";
+import { GeocodedPlace, GoogleMapsService, LatLng } from "../../core/services/google-maps.service";
 
 type ViewState = "loading" | "ready" | "no-coverage" | "not-found" | "error";
 
@@ -20,7 +20,7 @@ export class StreetView {
   readonly latitude = input<number | string | null | undefined>(null);
   readonly longitude = input<number | string | null | undefined>(null);
   readonly addressText = input("");
-  readonly located = output<LatLng>();
+  readonly located = output<GeocodedPlace>();
 
   private readonly container = viewChild<ElementRef<HTMLDivElement>>("pano");
 
@@ -49,8 +49,9 @@ export class StreetView {
     try {
       let target: LatLng | null = lat !== null && lng !== null ? { lat, lng } : null;
       if (!target && text.trim()) {
-        target = await this.maps.geocode(text);
-        if (target && seq === this.renderSeq) this.located.emit(target);
+        const found = await this.maps.geocode(text);
+        target = found;
+        if (found && seq === this.renderSeq) this.located.emit(found);
       }
       if (seq !== this.renderSeq) return;
       if (!target) {

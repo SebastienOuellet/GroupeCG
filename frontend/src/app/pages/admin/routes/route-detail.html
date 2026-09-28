@@ -1,0 +1,182 @@
+<div class="page-header">
+  <div>
+    <a routerLink="/routes" class="btn-link">← Routes</a>
+    <h1>{{ route()?.Name ?? "Route" }}</h1>
+    @if (route(); as r) {
+      <p class="route-meta">
+        Opérateur : {{ r.Operator?.Name || r.Operator?.Email || "aucun" }} ·
+        <span class="badge" [class.badge--active]="r.SequenceSource">{{ sequenceLabel(r) }}</span>
+      </p>
+    }
+  </div>
+</div>
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+@if (info()) {
+  <div class="info-banner">{{ info() }}</div>
+}
+
+@if (loading()) {
+  <p class="empty-state">Chargement...</p>
+} @else if (route(); as r) {
+  <!-- Départ et retour -->
+  <div class="card endpoint-card">
+    <div class="endpoint-card__row">
+      <div>
+        <strong>Départ et retour :</strong>
+        @if (endpoint(); as e) {
+          {{ e.label }}
+          <span class="badge">{{ e.kind === "base" ? "Point d'attache de la route" : "Dépôt" }}</span>
+        } @else {
+          <span class="field-error">aucun dépôt configuré</span> —
+          <a routerLink="/parametres/routes">Paramètres › Routes</a>
+        }
+      </div>
+      <div class="endpoint-card__actions">
+        <button type="button" class="btn-outline" (click)="baseEditorOpen.set(!baseEditorOpen()); pendingBase.set(null)">
+          {{ r.BaseLocation ? "Changer le point d'attache" : "Point d'attache propre à la route" }}
+        </button>
+        @if (r.BaseLocation) {
+          <button type="button" class="btn-outline" [disabled]="saving()" (click)="saveBase(null)">Revenir au dépôt</button>
+        }
+      </div>
+    </div>
+    @if (baseEditorOpen()) {
+      <div class="endpoint-card__editor">
+        <p class="form-hint">Endroit où le véhicule de cette route est stationné (ex. tracteur chez un client). La route part de là et y revient.</p>
+        <app-address-autocomplete (selected)="onBaseSelected($event)" />
+        @if (pendingBase(); as base) {
+          <div class="form-actions">
+            <button type="button" class="btn-primary" [disabled]="saving()" (click)="saveBase(base)">Utiliser « {{ base.label }} »</button>
+            <button type="button" class="btn-outline" (click)="baseEditorOpen.set(false)">Annuler</button>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="route-layout">
+    <!-- Liste ordonnée -->
+    <section class="card route-list">
+      <div class="route-list__toolbar">
+        <label class="form-field route-list__season">
+          <span>Saison</span>
+          <select [value]="season()" (change)="selectSeason($any($event.target).value)">
+            @for (year of seasons(); track year) {
+              <option [value]="year">{{ year }}-{{ year + 1 }}</option>
+            }
+          </select>
+        </label>
+        <div class="route-list__summary">
+          <strong>{{ order().length }}</strong> arrêt(s)
+          @if (unplacedCount()) {
+            · <span class="badge badge--draft">{{ unplacedCount() }} à placer</span>
+          }
+          @if (straightLineKm() > 0) {
+            · ≈ {{ straightLineKm().toFixed(1) }} km à vol d'oiseau
+          }
+        </div>
+      </div>
+
+      @if (needsLocating().length) {
+        <div class="warning-banner">
+          {{ needsLocating().length }} adresse(s) sans position utilisable sur la carte.
+          @if (mapsEnabled) {
+            <button type="button" class="btn-outline" [disabled]="locating()" (click)="locateMissing()">
+              {{ locating() ? "Localisation..." : "Localiser avec Google" }}
+            </button>
+          }
+        </div>
+      }
+
+      @if (order().length === 0) {
+        <p class="empty-state">Aucun contrat actif ou brouillon sur cette route pour cette saison.</p>
+      } @else {
+        <p class="form-hint">Glissez les arrêts (poignée ⠿) ou tapez directement leur position. L'ordre s'applique à la prochaine tournée démarrée ; une tournée en cours ne change pas.</p>
+        <ol class="stops" cdkDropList [cdkDropListData]="order()" (cdkDropListDropped)="drop($event)" cdkDropListLockAxis="y">
+          @for (contract of order(); track contract.Id; let i = $index) {
+            <li
+              class="stop"
+              cdkDrag
+              [id]="'stop-' + contract.Id"
+              [class.stop--highlighted]="highlightedId() === contract.Id"
+              (mouseenter)="highlightedId.set(contract.Id)"
+              (mouseleave)="highlightedId.set(null)"
+            >
+              <span class="stop__handle" cdkDragHandle aria-label="Déplacer">⠿</span>
+              <input
+                class="stop__position"
+                type="number"
+                min="1"
+                [max]="order().length"
+                [value]="i + 1"
+                aria-label="Position"
+                (change)="moveTo(i, $any($event.target).valueAsNumber, $any($event.target))"
+                (keydown.enter)="$any($event.target).blur()"
+              />
+              <div class="stop__info">
+                <strong>{{ addressLabel(contract) }}</strong>
+                <small>{{ contract.Reference }} · {{ clientLabel(contract) }}</small>
+              </div>
+              <div class="stop__badges">
+                @if (contract.Status !== "active") {
+                  <span class="badge badge--{{ contract.Status }}">{{ statusLabels[contract.Status] }}</span>
+                }
+                @if (contract.RouteSequence == null) {
+                  <span class="badge badge--draft" title="Nouveau sur la route : pas encore placé">À placer</span>
+                }
+                @if (!hasCoordinates(contract)) {
+                  <span class="badge badge--cancelled" title="Pas de position : absent de la carte">Sans position</span>
+                } @else if (contract.ServiceAddress?.LocationSource === "manual_pin") {
+                  <span class="badge badge--active" title="Pin corrigé à la main">Pin manuel</span>
+                }
+              </div>
+            </li>
+          }
+        </ol>
+      }
+
+      <div class="route-list__actions" [class.route-list__actions--dirty]="dirty()">
+        @if (dirty()) {
+          <span class="route-list__dirty">Ordre modifié, non enregistré</span>
+        }
+        <button type="button" class="btn-outline" [disabled]="order().length < 2" (click)="reverse()">Inverser</button>
+        <button type="button" class="btn-outline" [disabled]="!dirty() || saving()" (click)="cancelOrder()">Annuler</button>
+        <button type="button" class="btn-primary" [disabled]="(!dirty() && !unplacedCount()) || saving() || order().length === 0" (click)="saveOrder()">
+          {{ saving() ? "Enregistrement..." : "Enregistrer l'ordre" }}
+        </button>
+      </div>
+    </section>
+
+    <!-- Carte -->
+    <section class="card route-map-card">
+      <div class="route-map-card__toolbar">
+        <label class="checkbox-row">
+          <input type="checkbox" [checked]="pinEditMode()" (change)="pinEditMode.set($any($event.target).checked)" />
+          <span>Corriger les pins (glisser un pin sur l'entrée)</span>
+        </label>
+      </div>
+      @if (mapsEnabled) {
+        <app-route-map
+          class="route-map-card__map"
+          [stops]="mapStops()"
+          [endpoint]="mapEndpoint()"
+          [editable]="pinEditMode()"
+          [highlightedId]="highlightedId()"
+          (pinMoved)="onPinMoved($event)"
+          (stopClicked)="focusStop($event)"
+        />
+        <p class="form-hint route-map-card__legend">
+          <span class="dot dot--placed"></span> placé
+          <span class="dot dot--unplaced"></span> à placer
+          <span class="dot dot--manual"></span> pin manuel
+          <span class="dot dot--endpoint"></span> départ/retour (D). Tracé à vol d'oiseau : il montre l'ordre, pas le chemin.
+        </p>
+      } @else {
+        <p class="empty-state">Carte indisponible : clé Google Maps non configurée.</p>
+      }
+    </section>
+  </div>
+}

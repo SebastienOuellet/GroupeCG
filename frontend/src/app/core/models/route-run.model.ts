@@ -7,6 +7,8 @@ export interface RouteRunStop {
   Id: number;
   RouteRunId: number;
   ContractId: number;
+  /** Ordre figé au démarrage de la tournée. */
+  Sequence: number;
   Status: RouteRunStopStatus;
   DoneAt: string | null;
   Notes: string | null;

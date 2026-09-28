@@ -155,3 +155,43 @@
   width: 100%;
   padding: 0.875rem;
 }
+
+/* Ordre de passage (phase R1) */
+.stop-card {
+  &__number {
+    flex: 0 0 auto;
+    min-width: 3.25rem;
+    padding: 0.3rem 0.4rem;
+    border-radius: 6px;
+    background: #eef1f6;
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 0.875rem;
+    text-align: center;
+  }
+
+  &--next {
+    border-left-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary), 0 2px 8px rgba(5, 34, 97, 0.2);
+
+    .stop-card__number {
+      background: var(--color-primary);
+      color: #fff;
+    }
+  }
+
+  &__next-label {
+    font-size: 0.75rem !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-primary) !important;
+  }
+
+  &__navigate {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    text-decoration: none;
+  }
+}

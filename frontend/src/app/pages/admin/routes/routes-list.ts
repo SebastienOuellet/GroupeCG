@@ -1,7 +1,8 @@
 import { Component, computed, inject, OnInit, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { Router } from "@angular/router";
 import { RouteService } from "../../../core/services/route.service";
-import { Contract, RouteModel } from "../../../core/models/domain.model";
+import { RouteModel } from "../../../core/models/domain.model";
 import { UserService } from "../../../core/user.service";
 import { ManagedUser, OPERATOR_CAPABLE_ROLES } from "../../../core/models/user.model";
 
@@ -13,10 +14,9 @@ import { ManagedUser, OPERATOR_CAPABLE_ROLES } from "../../../core/models/user.m
 export class RoutesList implements OnInit {
   private readonly routeService = inject(RouteService);
   private readonly userService = inject(UserService);
+  private readonly router = inject(Router);
 
   readonly routes = signal<RouteModel[]>([]);
-  readonly selectedRoute = signal<RouteModel | null>(null);
-  readonly routeContracts = signal<Contract[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly showForm = signal(false);
@@ -45,17 +45,9 @@ export class RoutesList implements OnInit {
     }
   }
 
-  async select(route: RouteModel): Promise<void> {
-    if (this.selectedRoute()?.Id === route.Id) {
-      this.selectedRoute.set(null);
-      return;
-    }
-    this.selectedRoute.set(route);
-    try {
-      this.routeContracts.set(await this.routeService.getRouteContracts(route.Id));
-    } catch (e) {
-      this.error.set((e as Error).message);
-    }
+  /** Page de la route : ordre de passage, carte, point d'attache. */
+  open(route: RouteModel): void {
+    this.router.navigate(["/routes", route.Id]);
   }
 
   openForm(route?: RouteModel): void {
@@ -85,7 +77,6 @@ export class RoutesList implements OnInit {
     if (!confirm(`Désactiver la route « ${route.Name} » ?`)) return;
     try {
       await this.routeService.deactivateRoute(route.Id);
-      this.selectedRoute.set(null);
       await this.load();
     } catch (e) {
       this.error.set((e as Error).message);
@@ -94,17 +85,5 @@ export class RoutesList implements OnInit {
 
   userLabel(user: ManagedUser): string {
     return user.Name ? `${user.Name} (${user.Email})` : user.Email;
-  }
-
-  clientLabel(contract: Contract): string {
-    const client = contract.Client;
-    if (!client) return "—";
-    const person = [client.FirstName, client.LastName].filter(Boolean).join(" ");
-    return client.CompanyName || person || `#${client.ClientNumber}`;
-  }
-
-  addressLabel(contract: Contract): string {
-    const address = contract.ServiceAddress;
-    return address ? `${address.CivicNumber} ${address.Street}, ${address.City}` : "—";
   }
 }

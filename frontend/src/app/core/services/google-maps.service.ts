@@ -8,6 +8,7 @@ export interface ResolvedAddress {
   Street: string;
   City: string;
   PostalCode: string;
+  PlaceId: string | null;
   Latitude: number;
   Longitude: number;
 }
@@ -23,6 +24,20 @@ export interface LatLng {
   lng: number;
 }
 
+/** Résultat d'une recherche texte : coordonnées + identifiant Google permanent. */
+export interface GeocodedPlace extends LatLng {
+  placeId: string | null;
+}
+
+/** Classes Google nécessaires à une carte avec marqueurs numérotés. */
+export interface MapLibraries {
+  Map: typeof google.maps.Map;
+  AdvancedMarkerElement: typeof google.maps.marker.AdvancedMarkerElement;
+  PinElement: typeof google.maps.marker.PinElement;
+  Polyline: typeof google.maps.Polyline;
+  LatLngBounds: typeof google.maps.LatLngBounds;
+}
+
 /** Rayon de recherche d'un panorama autour de l'adresse (m). Au-delà, la vue ne montre plus l'entrée. */
 const STREET_VIEW_RADIUS_METERS = 50;
 const SUGGESTION_REGION_CODES = ["ca"];
@@ -36,6 +51,8 @@ const LANGUAGE = "fr";
 @Injectable({ providedIn: "root" })
 export class GoogleMapsService {
   readonly isEnabled = Boolean(environment.googleMapsApiKey);
+  /** Map ID requis par les marqueurs avancés. DEMO_MAP_ID convient au dev ; en prod, créer un Map ID dans Google Cloud. */
+  readonly mapId = environment.googleMapsMapId || "DEMO_MAP_ID";
 
   private optionsSet = false;
   private sessionToken: google.maps.places.AutocompleteSessionToken | null = null;
@@ -98,23 +115,46 @@ export class GoogleMapsService {
       Street: component("route"),
       City: component("locality") || component("sublocality") || component("administrative_area_level_3"),
       PostalCode: component("postal_code").replace(/\s/g, "").toUpperCase(),
+      PlaceId: place.id || null,
       Latitude: place.location?.lat() ?? 0,
       Longitude: place.location?.lng() ?? 0
     };
   }
 
   /** Géocode une adresse texte (adresses saisies avant l'autocomplete). Utilise Places, pas l'API Geocoding. */
-  async geocode(text: string): Promise<LatLng | null> {
+  async geocode(text: string): Promise<GeocodedPlace | null> {
     const { Place } = await this.places();
     const { places } = await Place.searchByText({
       textQuery: text,
-      fields: ["location"],
+      fields: ["id", "location"],
       language: LANGUAGE,
       region: "ca",
       maxResultCount: 1
     });
     const location = places[0]?.location;
-    return location ? { lat: location.lat(), lng: location.lng() } : null;
+    return location ? { lat: location.lat(), lng: location.lng(), placeId: places[0].id || null } : null;
+  }
+
+  /**
+   * Coordonnées à jour d'un lieu connu par son PlaceId (Place Details, champ location seulement).
+   * Sert à rafraîchir le cache de coordonnées Google (conditions Google : seul le place_id est permanent).
+   */
+  async fetchLocation(placeId: string): Promise<LatLng | null> {
+    const { Place } = await this.places();
+    const place = new Place({ id: placeId });
+    await place.fetchFields({ fields: ["location"] });
+    return place.location ? { lat: place.location.lat(), lng: place.location.lng() } : null;
+  }
+
+  /** Charge les librairies de carte et de marqueurs (une seule fois, au premier affichage de carte). */
+  async mapLibraries(): Promise<MapLibraries> {
+    this.ensureOptions();
+    const [{ Map, Polyline }, { AdvancedMarkerElement, PinElement }, { LatLngBounds }] = await Promise.all([
+      importLibrary("maps"),
+      importLibrary("marker"),
+      importLibrary("core")
+    ]);
+    return { Map, Polyline, AdvancedMarkerElement, PinElement, LatLngBounds };
   }
 
   /**

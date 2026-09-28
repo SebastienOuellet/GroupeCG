@@ -2,7 +2,7 @@ import db from "../../../models/index.js";
 import { BadRequestError, NotFoundError } from "../../errors/Errors.js";
 import { USER_ROLES } from "../user/user.constants.js";
 import { logger } from "../../config/logger.js";
-import { normalizeNamedLocation } from "../../shared/location.js";
+import { keepLocationDateIfUnchanged, normalizeNamedLocation } from "../../shared/location.js";
 import { MAX_ROUTE_SEQUENCE_LENGTH, ROUTE_SEQUENCE_SOURCE } from "./route.constants.js";
 
 const { Route, Contract, Client, ServiceAddress, User, sequelize } = db;
@@ -20,9 +20,11 @@ const routeInclude = [
 const stripManagedFields = ({ Id, Operator, SequenceUpdatedBy, SequenceSource, SequenceUpdatedAt, SequenceUpdatedByUserId, ...fields }) => fields;
 
 /** Point d'attache : null/"" = dépôt ; sinon emplacement validé. */
-const resolveBaseLocation = (fields) => {
+const resolveBaseLocation = (fields, current = null) => {
   if (!("BaseLocation" in fields)) return;
-  fields.BaseLocation = fields.BaseLocation ? normalizeNamedLocation(fields.BaseLocation, "Point d'attache du véhicule") : null;
+  fields.BaseLocation = fields.BaseLocation
+    ? keepLocationDateIfUnchanged(normalizeNamedLocation(fields.BaseLocation, "Point d'attache du véhicule"), current)
+    : null;
 };
 
 export const getRoutes = async ({ includeInactive = false } = {}) => {
@@ -149,7 +151,7 @@ export const updateRoute = async (id, routeInfo) => {
     throw new NotFoundError("Route introuvable.");
   }
   const updatable = stripManagedFields(routeInfo);
-  resolveBaseLocation(updatable);
+  resolveBaseLocation(updatable, route.BaseLocation);
   const operatorUserId = await resolveOperatorUserId(updatable.OperatorUserId);
   if (operatorUserId !== undefined) {
     updatable.OperatorUserId = operatorUserId;

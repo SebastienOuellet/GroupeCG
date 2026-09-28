@@ -1,0 +1,43 @@
+<app-settings-tabs />
+
+<div class="page-header">
+  <h1>Routes</h1>
+</div>
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+@if (info()) {
+  <div class="info-banner">{{ info() }}</div>
+}
+
+@if (loaded()) {
+  <div class="card">
+    <h2>Dépôt</h2>
+    <p class="form-hint">
+      Point de départ et de retour des routes (la cour). Une route peut avoir son propre point d'attache
+      (ex. tracteur stationné ailleurs) depuis sa page.
+    </p>
+
+    @if (depot(); as d) {
+      <p><strong>{{ d.label }}</strong> @if (updatedAt(); as date) { <small class="form-hint">— modifié le {{ date.slice(0, 10) }}</small> }</p>
+    } @else {
+      <div class="warning-banner">Aucun dépôt configuré : la carte des routes n'affiche pas de départ/retour.</div>
+    }
+
+    @if (mapsEnabled) {
+      <label class="form-field form-field--wide">
+        <span>{{ depot() ? "Changer le dépôt" : "Adresse du dépôt" }}</span>
+      </label>
+      <app-address-autocomplete (selected)="onSelected($event)" />
+      @if (pending(); as p) {
+        <div class="form-actions">
+          <button type="button" class="btn-primary" [disabled]="saving()" (click)="save()">Enregistrer « {{ p.label }} »</button>
+          <button type="button" class="btn-outline" (click)="pending.set(null)">Annuler</button>
+        </div>
+      }
+    } @else {
+      <p class="form-hint">La recherche d'adresse Google n'est pas configurée (googleMapsApiKey).</p>
+    }
+  </div>
+}

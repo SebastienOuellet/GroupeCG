@@ -28,8 +28,18 @@
       } @else {
         <div class="stops">
           @for (stop of run()?.Stops; track stop.Id) {
-            <div class="stop-card" [class.stop-card--done]="stop.Status === 'done'" [class.stop-card--skipped]="stop.Status === 'skipped'">
+            <div
+              class="stop-card"
+              [id]="'stop-' + stop.Id"
+              [class.stop-card--done]="stop.Status === 'done'"
+              [class.stop-card--skipped]="stop.Status === 'skipped'"
+              [class.stop-card--next]="stop.Id === nextStopId()"
+            >
+              <span class="stop-card__number" [attr.aria-label]="'Arrêt ' + stop.Sequence + ' sur ' + totalCount">{{ stop.Sequence }}/{{ totalCount }}</span>
               <div class="stop-card__info">
+                @if (stop.Id === nextStopId()) {
+                  <span class="stop-card__next-label">Prochain arrêt</span>
+                }
                 <div class="stop-card__title">
                   <strong>{{ addressLabel(stop) }}</strong>
                   <app-surface-badge [surface]="stop.Contract?.ServiceAddress?.DrivewaySurface" />
@@ -43,6 +53,9 @@
                 <p class="stop-card__instructions">⚠ {{ instructions }}</p>
               }
               <div class="stop-card__actions">
+                @if (stop.Status === "pending" && navigationUrl(stop); as url) {
+                  <a class="btn-outline stop-card__navigate" [href]="url" target="_blank" rel="noopener">🧭 Naviguer</a>
+                }
                 @if (stop.Status === "pending") {
                   <button type="button" class="btn-outline" (click)="setStopStatus(stop, 'skipped')">Passer</button>
                   <button type="button" class="btn-primary" (click)="setStopStatus(stop, 'done')">Fait ✓</button>

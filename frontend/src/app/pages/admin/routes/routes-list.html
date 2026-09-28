@@ -73,11 +73,12 @@
       </thead>
       <tbody>
         @for (route of routes(); track route.Id) {
-          <tr class="clickable" (click)="select(route)">
+          <tr class="clickable" (click)="open(route)">
             <td data-label="Nom"><strong>{{ route.Name }}</strong></td>
             <td data-label="Description">{{ route.Description || "—" }}</td>
             <td data-label="Opérateur">{{ route.Operator?.Name || route.Operator?.Email || "—" }}</td>
             <td class="cell-actions">
+              <button type="button" class="btn-outline" (click)="$event.stopPropagation(); open(route)">Ordre de passage</button>
               <button type="button" class="btn-outline" (click)="$event.stopPropagation(); openForm(route)">Modifier</button>
               <button type="button" class="btn-danger" (click)="$event.stopPropagation(); deactivate(route)">Désactiver</button>
             </td>
@@ -87,33 +88,3 @@
     </table>
   }
 </div>
-
-@if (selectedRoute(); as route) {
-  <div class="card">
-    <h2>Contrats sur « {{ route.Name }} »</h2>
-    @if (routeContracts().length === 0) {
-      <p class="empty-state">Aucun contrat assigné à cette route.</p>
-    } @else {
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Référence</th>
-            <th>Client</th>
-            <th>Adresse</th>
-            <th>Statut</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (contract of routeContracts(); track contract.Id) {
-            <tr>
-              <td data-label="Référence"><strong>{{ contract.Reference }}</strong></td>
-              <td data-label="Client">{{ clientLabel(contract) }}</td>
-              <td data-label="Adresse">{{ addressLabel(contract) }}</td>
-              <td data-label="Statut"><span class="badge badge--{{ contract.Status }}">{{ contract.Status }}</span></td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    }
-  </div>
-}

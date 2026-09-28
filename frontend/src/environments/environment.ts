@@ -6,6 +6,8 @@ export const environment = {
    * Vide = autocomplete et Street View désactivés, saisie manuelle seulement.
    */
   googleMapsApiKey: 'AIzaSyCAd2AZi7voXa--h8dQ7pLJfQMmerlxZlA',
+  /** Map ID Google (marqueurs avancés de la carte des routes). Vide = DEMO_MAP_ID, à remplacer en prod. */
+  googleMapsMapId: '',
   firebase: {
     apiKey: 'AIzaSyBGoCSp5UUVuBF4l2qQWKZ2J9GFbmEEGTg',
     authDomain: 'groupecg-fbe5b.firebaseapp.com',

@@ -28,3 +28,15 @@ export const normalizeNamedLocation = (input, fieldLabel) => {
   }
   return { label, placeId, latitude, longitude, locationUpdatedAt: new Date().toISOString() };
 };
+
+/**
+ * Garde la date d'origine si l'emplacement renvoyé est le même (ex. formulaire de route
+ * réenregistré tel quel) : seule une vraie mise à jour des coordonnées repousse l'expiration.
+ */
+export const keepLocationDateIfUnchanged = (next, current) => {
+  if (next && current && next.placeId === (current.placeId ?? null) && next.label === current.label
+    && next.latitude === Number(current.latitude) && next.longitude === Number(current.longitude) && current.locationUpdatedAt) {
+    return { ...next, locationUpdatedAt: current.locationUpdatedAt };
+  }
+  return next;
+};

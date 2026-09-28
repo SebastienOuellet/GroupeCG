@@ -65,6 +65,11 @@ export const routes: Routes = [
         loadComponent: () => import("./pages/admin/routes/routes-list").then((m) => m.RoutesList)
       },
       {
+        path: "routes/:id",
+        loadComponent: () => import("./pages/admin/routes/route-detail").then((m) => m.RouteDetail),
+        canDeactivate: [(page: { confirmLeave(): boolean }) => page.confirmLeave()]
+      },
+      {
         path: "modeles",
         loadComponent: () => import("./pages/admin/templates/templates-list").then((m) => m.TemplatesList)
       },
@@ -95,6 +100,10 @@ export const routes: Routes = [
       {
         path: "parametres/contrat",
         loadComponent: () => import("./pages/admin/settings/contract-settings").then((m) => m.ContractSettings)
+      },
+      {
+        path: "parametres/routes",
+        loadComponent: () => import("./pages/admin/settings/routes-settings").then((m) => m.RoutesSettings)
       }
     ]
   },

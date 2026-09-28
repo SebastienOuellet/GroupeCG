@@ -9,7 +9,7 @@ import { contactErrors, emailError, phoneError } from "../../../core/utils/conta
 import { ContactForm } from "../../../shared/contact-form/contact-form";
 import { NoticeStatus } from "../../../shared/notice-status/notice-status";
 import { Client, ContractStatus, ServiceAddress, Tenant } from "../../../core/models/domain.model";
-import { GoogleMapsService, LatLng } from "../../../core/services/google-maps.service";
+import { GeocodedPlace, GoogleMapsService } from "../../../core/services/google-maps.service";
 import { AddressFields } from "../../../shared/address-fields/address-fields";
 import { StreetView } from "../../../shared/street-view/street-view";
 import { SurfaceBadge } from "../../../shared/surface-badge/surface-badge";
@@ -155,7 +155,7 @@ export class ClientDetail implements OnInit {
   }
 
   async saveAddressEdit(address: ServiceAddress): Promise<void> {
-    const { CivicNumber, Street, City, PostalCode, Latitude, Longitude, DrivewaySurface, Notes } = this.editForm;
+    const { CivicNumber, Street, City, PostalCode, PlaceId, Latitude, Longitude, DrivewaySurface, Notes } = this.editForm;
     this.saving.set(true);
     this.error.set(null);
     try {
@@ -164,6 +164,7 @@ export class ClientDetail implements OnInit {
         Street,
         City,
         PostalCode,
+        PlaceId: PlaceId ?? null,
         Latitude: Latitude ?? null,
         Longitude: Longitude ?? null,
         DrivewaySurface: DrivewaySurface ?? null,
@@ -210,10 +211,10 @@ export class ClientDetail implements OnInit {
   }
 
   /** Adresse créée avant l'autocomplete : on mémorise les coordonnées trouvées pour ne géocoder qu'une fois. */
-  async saveCoordinates(address: ServiceAddress, location: LatLng): Promise<void> {
+  async saveCoordinates(address: ServiceAddress, location: GeocodedPlace): Promise<void> {
     try {
       // Pas de mutation locale : elle relancerait la vue (2e chargement facturé). Le prochain load() les aura.
-      await this.addressService.updateAddress(address.Id, { Latitude: location.lat, Longitude: location.lng });
+      await this.addressService.updateAddress(address.Id, { Latitude: location.lat, Longitude: location.lng, PlaceId: location.placeId });
     } catch (e) {
       this.error.set((e as Error).message);
     }

@@ -1,5 +1,6 @@
 import { DrivewaySurface } from "./driveway-surface";
 import { Suppressions } from "./consent";
+import { LocationSource, NamedLocation } from "./location.model";
 
 export interface Client {
   Id: number;
@@ -27,9 +28,14 @@ export interface ServiceAddress {
   Street: string;
   City: string;
   PostalCode: string;
+  /** Identifiant Google du lieu (permanent) ; sert à rafraîchir les coordonnées. */
+  PlaceId?: string | null;
   /** DECIMAL côté PostgreSQL : Sequelize le renvoie en chaîne. */
   Latitude: number | string | null;
   Longitude: number | string | null;
+  /** Géré par le serveur ; envoyer "manual_pin" pour un pin corrigé, "google_places" pour un rafraîchissement. */
+  LocationSource?: LocationSource | null;
+  LocationUpdatedAt?: string | null;
   DrivewaySurface: DrivewaySurface | null;
   Notes: string | null;
   IsActive: boolean;
@@ -45,7 +51,14 @@ export interface RouteModel {
   SortOrder: number;
   IsActive: boolean;
   Operator?: { Id: number; Name: string | null; Email: string } | null;
+  /** Point d'attache du véhicule (départ et retour). null = dépôt (Paramètres › Routes). */
+  BaseLocation?: NamedLocation | null;
+  SequenceSource?: RouteSequenceSource | null;
+  SequenceUpdatedAt?: string | null;
+  SequenceUpdatedBy?: { Id: number; Name: string | null; Email: string } | null;
 }
+
+export type RouteSequenceSource = "manual" | "optimized";
 
 export type ContractStatus = "draft" | "active" | "completed" | "cancelled";
 
@@ -72,6 +85,8 @@ export interface Contract {
   ClientId: number;
   ServiceAddressId: number;
   RouteId: number | null;
+  /** Position dans la route (1, 2, 3…) ; null = pas encore placé. Modifiable seulement via la page de la route. */
+  RouteSequence?: number | null;
   SeasonStartYear: number;
   StartDate: string;
   EndDate: string;

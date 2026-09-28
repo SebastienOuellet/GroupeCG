@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from "@angular/core";
+import { Component, computed, inject, OnInit, signal } from "@angular/core";
 import { ActivatedRoute, Router } from "@angular/router";
 import { RouteRunService } from "../../../core/services/route-run.service";
 import { RouteModel } from "../../../core/models/domain.model";
@@ -21,6 +21,9 @@ export class RouteRunPage implements OnInit {
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
 
+  /** Premier arrêt encore à faire, dans l'ordre figé de la tournée. */
+  readonly nextStopId = computed(() => this.run()?.Stops?.find((s) => s.Status === "pending")?.Id ?? null);
+
   private routeId!: number;
 
   async ngOnInit(): Promise<void> {
@@ -34,6 +37,7 @@ export class RouteRunPage implements OnInit {
       const { route, run } = await this.routeRunService.getCurrentRun(this.routeId);
       this.route.set(route);
       this.run.set(run);
+      this.scrollToNext("auto");
     } catch (e) {
       this.error.set((e as Error).message);
     }
@@ -46,6 +50,7 @@ export class RouteRunPage implements OnInit {
     try {
       const run = await this.routeRunService.start(this.routeId);
       this.run.set(run);
+      this.scrollToNext("auto");
     } catch (e) {
       this.error.set((e as Error).message);
     } finally {
@@ -59,8 +64,10 @@ export class RouteRunPage implements OnInit {
       const updated = await this.routeRunService.updateStop(stop.Id, status);
       const run = this.run();
       if (run?.Stops) {
-        run.Stops = run.Stops.map((s) => (s.Id === updated.Id ? updated : s));
+        // La réponse n'inclut pas le contrat : on garde celui déjà chargé
+        run.Stops = run.Stops.map((s) => (s.Id === updated.Id ? { ...s, ...updated, Contract: s.Contract } : s));
         this.run.set({ ...run });
+        if (status !== "pending") this.scrollToNext("smooth");
       }
     } catch (e) {
       this.error.set((e as Error).message);
@@ -81,6 +88,28 @@ export class RouteRunPage implements OnInit {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  private scrollToNext(behavior: ScrollBehavior): void {
+    const id = this.nextStopId();
+    if (id === null) return;
+    // Après le rendu de la liste
+    setTimeout(() => document.getElementById(`stop-${id}`)?.scrollIntoView({ behavior, block: "center" }));
+  }
+
+  /**
+   * Lien Google Maps « itinéraire » : ouvre l'app GPS du téléphone, gratuit et sans clé.
+   * Coordonnées si connues (pin corrigé = exact), sinon l'adresse en texte ; PlaceId en plus quand on l'a.
+   */
+  navigationUrl(stop: RouteRunStop): string | null {
+    const a = stop.Contract?.ServiceAddress;
+    if (!a) return null;
+    const hasCoords = a.Latitude !== null && a.Latitude !== undefined && a.Longitude !== null && a.Longitude !== undefined;
+    const destination = hasCoords ? `${Number(a.Latitude)},${Number(a.Longitude)}` : `${a.CivicNumber} ${a.Street}, ${a.City}, QC ${a.PostalCode}`;
+    const params = new URLSearchParams({ api: "1", destination, travelmode: "driving" });
+    // Un pin corrigé à la main prime : le place_id ramènerait l'adresse Google (souvent le bord du chemin)
+    if (a.PlaceId && a.LocationSource !== "manual_pin") params.set("destination_place_id", a.PlaceId);
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
   }
 
   back(): void {

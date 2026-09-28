@@ -1,6 +1,7 @@
 import { inject, Injectable } from "@angular/core";
 import { ApiService } from "../api.service";
-import { ContractTerms, ContractTermsResponse } from "../models/setting.model";
+import { ContractTerms, ContractTermsResponse, RouteDepotResponse } from "../models/setting.model";
+import { NamedLocation } from "../models/location.model";
 
 @Injectable({
   providedIn: "root"
@@ -19,5 +20,13 @@ export class SettingService {
 
   updateContractTerms(terms: ContractTerms): Promise<ContractTermsResponse> {
     return this.api.put<ContractTermsResponse>("setting/contract-terms", terms);
+  }
+
+  getRouteDepot(): Promise<RouteDepotResponse> {
+    return this.api.get<RouteDepotResponse>("setting/route-depot");
+  }
+
+  updateRouteDepot(depot: NamedLocation): Promise<RouteDepotResponse> {
+    return this.api.put<RouteDepotResponse>("setting/route-depot", depot);
   }
 }

@@ -5,7 +5,7 @@ import { SETTING_KEYS } from "./setting.constants.js";
 import { CONTRACT_TERMS_RULES, DEFAULT_CONTRACT_TERMS } from "../../documents/contractTerms.js";
 import { buildContractPdf } from "../../documents/contractPdf.js";
 import { computeTotals } from "../invoice/invoice.money.js";
-import { normalizeNamedLocation } from "../../shared/location.js";
+import { keepLocationDateIfUnchanged, normalizeNamedLocation } from "../../shared/location.js";
 
 const { Setting } = db;
 
@@ -128,7 +128,8 @@ export const getRouteDepot = async () => {
 };
 
 export const updateRouteDepot = async (input, userId = null) => {
-  const value = normalizeNamedLocation(input, "Dépôt");
+  const current = await Setting.findOne({ where: { Key: SETTING_KEYS.ROUTE_DEPOT } });
+  const value = keepLocationDateIfUnchanged(normalizeNamedLocation(input, "Dépôt"), current?.Value);
   const [row] = await Setting.findOrCreate({
     where: { Key: SETTING_KEYS.ROUTE_DEPOT },
     defaults: { Value: value, UpdatedByUserId: userId }

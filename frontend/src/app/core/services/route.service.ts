@@ -20,6 +20,11 @@ export class RouteService {
     return this.api.get<Contract[]>(`route/${id}/contracts`);
   }
 
+  /** Réécrit l'ordre de passage : `contractIds[i]` reçoit la position i + 1 (admin seulement). */
+  updateSequence(id: number, contractIds: number[]): Promise<{ route: RouteModel; contracts: Contract[] }> {
+    return this.api.put<{ route: RouteModel; contracts: Contract[] }>(`route/${id}/sequence`, { contractIds });
+  }
+
   createRoute(route: Partial<RouteModel>): Promise<RouteModel> {
     return this.api.post<RouteModel>("route", route);
   }
