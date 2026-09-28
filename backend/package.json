@@ -14,7 +14,8 @@
     "lint:fix": "eslint src --fix",
     "migrate": "npx sequelize-cli db:migrate --config ./migrations-config.js --env groupecg",
     "migrate:undo": "npx sequelize-cli db:migrate:undo --config ./migrations-config.js --env groupecg",
-    "migration:create": "npx sequelize-cli migration:generate --config ./migrations-config.js --name"
+    "migration:create": "npx sequelize-cli migration:generate --config ./migrations-config.js --name",
+    "ngrok:test": "ngrok http 5011 --url https://urchin-modern-briefly.ngrok-free.app"
   },
   "author": "Techqueb",
   "license": "ISC",
