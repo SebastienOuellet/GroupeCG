@@ -1,6 +1,6 @@
 # Plan — Optimisation des routes avec Google (Route Optimization API)
 
-> Statut : **Phase R1 livrée le 2026-09-28** (commits `da771fc` backend, `7b3342b` frontend) — voir « Phase R1 » §5. R0, R2 et suivantes : plan seulement. Rédigé le 2026-09-27 à partir du code sur `main` (commit `a63bbe0`, après les phases 1-5 de `PLAN-ORIGINAL.md` et les ajouts du 26-27 septembre).
+> Statut : **Phases R1 et R2 livrées le 2026-09-28** — voir §5. R2 tourne avec l'optimiseur local tant que R0 (Google Cloud) n'est pas faite. R3 et suivantes : plan seulement. Rédigé le 2026-09-27 à partir du code sur `main` (commit `a63bbe0`, après les phases 1-5 de `PLAN-ORIGINAL.md` et les ajouts du 26-27 septembre).
 >
 > Pour reprendre : lire `RESUME-REPRISE.md` (état du code, démarrage, travail en parallèle), puis ce plan. Commencer par la section 7 (questions ouvertes), puis la phase R0.
 
@@ -172,6 +172,17 @@ Migrations `RouteSequence`, `RouteRunStops.Sequence`, `PlaceId`, `LocationSource
 `src/routing/` (factory + NearestNeighbor + Google) ; `optimize` / `apply` ; aperçu avant/après dans `/routes/:id`.
 → *Livrable : un clic → proposition → validation.*
 → *Vérif : `ROUTE_OPTIMIZATION_DRY_RUN=true` → parcours complet sans réseau ; requête Google en `VALIDATE_ONLY` (non facturée) ; puis vraie requête sur une route de test de 10 adresses ; adresse sans coordonnées → dans `skipped` ; inspecter la requête sortante (aucune donnée nominative) ; timeout simulé → erreur propre, DB intacte.*
+
+**✅ Livré le 2026-09-28** (`ba8dc31` backend + frontend suivant). Écarts et ajouts :
+- `src/routing/` : `RouteOptimizer` (contrat), `LocalRouteOptimizer` (plus proche voisin **+ 2-opt + Or-opt**, pas seulement le plus proche voisin : optimum exact sur 30/30 cas de 7 arrêts, ~50 ms pour 100 arrêts), `GoogleRouteOptimizer`, `routeOptimizerFactory` (+ `setRouteOptimizer` pour les tests), `geo.js`.
+- Endpoints dans le composant `route/` (`routeOptimization.service.js`) : `POST /route/:id/optimize` corps `{ seasonYear }` (actifs + brouillons de la saison), `POST /route/:id/optimize/apply` corps `{ contractIds }`.
+- Comparaison équitable : l'aperçu donne **l'ordre enregistré et l'ordre proposé à vol d'oiseau** (même mesure), plus km/durée routiers quand c'est Google.
+- Durée de visite par revêtement en constantes (`DEFAULT_VISIT_SECONDS_BY_SURFACE`, 4-5 min) ; réglage admin reporté en R3.
+- Pin manuel → coordonnées envoyées à Google (pas le PlaceId) ; sinon PlaceId quand on l'a.
+- `ROUTE_OPTIMIZATION_VALIDATE_ONLY=true` : Google valide la requête sans la résoudre ni la facturer.
+- UI : bouton « ⚡ Optimiser » → la proposition remplace l'ordre à l'écran (non enregistrée), ancien ordre en pointillé gris sur la carte, gain en %, arrêts non placés listés et laissés à la fin. « Appliquer la proposition » → `SequenceSource=optimized` ; retouchée à la main → enregistrée comme ordre manuel.
+- Vérifié : 38 tests (qualité/perf de l'optimiseur local, requête Google inspectée et encodée en protobuf, réponse Google simulée, 503 propre, aucune donnée nominative sortante, DB intacte en cas d'échec). **Pas encore d'appel Google réel** : dépend de R0.
+- Pour passer à Google : R0, puis `backend/googleConfig/README.md`.
 
 **= MVP complet (R0 + R1 + R2), ~5 soirées.**
 

@@ -38,6 +38,13 @@ Chaque phase a été vérifiée par script (13 à 25 tests métier par phase, to
 ### Routes — phase R1 : ordre des arrêts (28 septembre)
 - `da771fc` — Backend : `Contracts.RouteSequence`, `RouteRunStops.Sequence` figée au démarrage, `PUT /route/:id/sequence` (admin), dépôt `Settings.route_depot`, point d'attache `Routes.BaseLocation`, `ServiceAddresses.PlaceId/LocationSource/LocationUpdatedAt`
 - `7b3342b` — Frontend : page `/routes/:id` (glisser-déposer + position directe, carte, point d'attache, correction des pins), Paramètres › Routes (dépôt), vue opérateur ordonnée avec « Prochain arrêt » et « Naviguer »
+- `0184748` — Script de données de test `backend/scripts/seed-test-route.js` (20 clients fictifs, secteur Boisjoli, `--reset` / `--remove`)
+
+### Routes — phase R2 : optimiseur (28 septembre)
+- `ba8dc31` — Backend : `src/routing/` (optimiseur local 2-opt/Or-opt par défaut, Google Route Optimization prêt), `POST /route/:id/optimize` et `/optimize/apply`
+- Frontend : bouton « ⚡ Optimiser » sur `/routes/:id`, aperçu avant/après (gain %, ancien tracé en pointillé), « Appliquer la proposition »
+- Tourne **sans Google** (`ROUTE_OPTIMIZATION_DRY_RUN=true` par défaut). Pour Google : phase R0 puis `backend/googleConfig/README.md`.
+
 - ⚠️ **Migration `20260928100001-route-sequence` à exécuter sur la DB DigitalOcean** (`npm run migrate`) si ce n'est pas déjà fait — sans elle, les tournées plantent (colonne `Sequence` absente).
 
 Détails complets : `git log` (messages de commit en français, avec le pourquoi).
@@ -67,10 +74,10 @@ Migrations : `npm run migrate` dans `backend/` (la DB DigitalOcean est partagée
 
 ### Chantier en cours : optimisation des routes (voir `PLAN-ROUTES-GOOGLE.md`)
 - Questions ouvertes **tranchées** (§7 du plan) : dépôt unique au 200 rue des Villas, ~50 routes × ≤100 adresses, pas d'heure limite pour l'instant, réordonnancement admin seulement, retour au point d'attache (dépôt ou point propre à la route).
-- **Phase R1 livrée.** Reste à valider dans le navigateur : dépôt à saisir (Paramètres › Routes), réordonner une route, démarrer une tournée comme opérateur, tester « Naviguer » sur un téléphone.
+- **Phases R1 et R2 livrées** (R2 en optimiseur local). Reste à valider dans le navigateur : dépôt à saisir (Paramètres › Routes), réordonner une route, démarrer une tournée comme opérateur, tester « Naviguer » sur un téléphone.
 - Créer un **Map ID** Google (console Cloud › Map Management) et le mettre dans `googleMapsMapId` des fichiers `environment*.ts` avant la prod (sinon `DEMO_MAP_ID`).
-- Phase R0 : préparation Google Cloud (Route Optimization API, compte de service, alerte de budget, quota).
-- Phase R2 (bouton « Optimiser ») : départ/retour = `BaseLocation ?? dépôt`. Attention au volume (~5 000 arrêts) : optimiser route par route, seulement quand elle change. Prévoir aussi la purge serveur des coordonnées Google expirées.
+- **Phase R0** : préparation Google Cloud (Route Optimization API, compte de service → `backend/googleConfig/`, alerte de budget, quota), puis tester en `ROUTE_OPTIMIZATION_VALIDATE_ONLY=true` avant la première vraie requête. Attention au volume (~5 000 arrêts) : optimiser route par route, seulement quand elle change.
+- Purge serveur des coordonnées Google expirées (aujourd'hui rafraîchies seulement à l'ouverture de la page d'une route).
 - Phases R3-R5 selon le plan (R5 coûteux à ce volume, voir §7).
 
 ### Autres

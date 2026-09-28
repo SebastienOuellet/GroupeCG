@@ -1,0 +1,43 @@
+@let p = proposal();
+<div class="proposal">
+  <div class="proposal__head">
+    <strong>Proposition — {{ providerLabel() }}</strong>
+    <span class="proposal__elapsed">{{ p.elapsedMs }} ms</span>
+  </div>
+  <div class="proposal__stats">
+    <div class="proposal__stat">
+      <span>Ordre enregistré</span>
+      <strong>{{ p.current.straightLineKm.toFixed(1) }} km</strong>
+    </div>
+    <div class="proposal__arrow">→</div>
+    <div class="proposal__stat proposal__stat--new">
+      <span>Proposé</span>
+      <strong>{{ p.proposed.straightLineKm.toFixed(1) }} km</strong>
+    </div>
+    @if (savingPercent(); as pct) {
+      <div class="proposal__gain" [class.proposal__gain--none]="pct <= 0">{{ pct > 0 ? "−" + pct + " %" : "aucun gain" }}</div>
+    } @else {
+      <div class="proposal__gain proposal__gain--none">aucun gain</div>
+    }
+  </div>
+  <p class="proposal__note">
+    Distances à vol d'oiseau pour comparer à armes égales.
+    @if (p.provider === "google" && p.proposed.distanceKm !== null) {
+      Selon Google : {{ p.proposed.distanceKm.toFixed(1) }} km par la route@if (p.proposed.durationMinutes !== null) {, ≈ {{ p.proposed.durationMinutes }} min avec le déneigement}.
+    } @else if (p.proposed.durationMinutes !== null) {
+      Durée indicative ≈ {{ p.proposed.durationMinutes }} min (30 km/h + temps par entrée).
+    }
+    Pointillé gris sur la carte = ordre enregistré.
+  </p>
+  @if (p.skipped.length) {
+    <p class="proposal__skipped">
+      {{ p.skipped.length }} arrêt(s) non placé(s), laissé(s) à la fin :
+      @for (s of p.skipped; track s.contractId; let last = $last) {
+        {{ s.address }} ({{ s.reason }}){{ last ? "." : " ;" }}
+      }
+    </p>
+  }
+  @if (edited()) {
+    <p class="proposal__edited">Proposition retouchée à la main : elle sera enregistrée comme ordre manuel.</p>
+  }
+</div>

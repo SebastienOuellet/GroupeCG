@@ -36,3 +36,18 @@ export function haversineKm(a: { lat: number; lng: number }, b: { lat: number; l
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
+
+/** Proposition de l'optimiseur (POST /route/:id/optimize) — rien n'est enregistré. */
+export interface OptimizationProposal {
+  /** "local" = à vol d'oiseau, sans réseau ; "google" = Route Optimization API. */
+  provider: "local" | "google" | string;
+  validateOnly: boolean;
+  seasonYear: number;
+  endpointLabel: string;
+  orderedContractIds: number[];
+  skipped: { contractId: number; reference: string | null; address: string | null; reason: string }[];
+  /** Même mesure (vol d'oiseau) pour les deux ordres : comparaison équitable. */
+  current: { straightLineKm: number };
+  proposed: { straightLineKm: number; distanceKm: number | null; durationMinutes: number | null };
+  elapsedMs: number;
+}

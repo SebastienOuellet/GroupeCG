@@ -26,6 +26,7 @@ const COLOR_PLACED = "#052261";
 const COLOR_UNPLACED = "#a06000";
 const COLOR_MANUAL = "#1e7a3c";
 const COLOR_ENDPOINT = "#2f3840";
+const COLOR_COMPARE = "#8a94a0";
 /** Zoom si un seul point : Estrie, échelle d'une rue. */
 const SINGLE_POINT_ZOOM = 15;
 const DEFAULT_CENTER = { lat: 45.4042, lng: -71.8929 }; // Sherbrooke
@@ -62,6 +63,8 @@ export class RouteMap {
   readonly endpoint = input<RouteMapEndpoint | null>(null);
   readonly editable = input(false);
   readonly highlightedId = input<number | null>(null);
+  /** Tracé de comparaison (ex. ordre enregistré pendant l'aperçu d'une optimisation), en pointillé. */
+  readonly comparePath = input<{ lat: number; lng: number }[] | null>(null);
 
   readonly pinMoved = output<PinMove>();
   readonly stopClicked = output<number>();
@@ -74,6 +77,7 @@ export class RouteMap {
   private map: google.maps.Map | null = null;
   private markers: google.maps.marker.AdvancedMarkerElement[] = [];
   private line: google.maps.Polyline | null = null;
+  private compareLine: google.maps.Polyline | null = null;
   /** Recadrer seulement quand l'ensemble des points change, pas à chaque réordonnancement. */
   private lastBoundsKey = "";
 
@@ -83,8 +87,9 @@ export class RouteMap {
       const endpoint = this.endpoint();
       const editable = this.editable();
       const highlighted = this.highlightedId();
+      const compare = this.comparePath();
       const el = this.container().nativeElement;
-      untracked(() => void this.render(el, stops, endpoint, editable, highlighted));
+      untracked(() => void this.render(el, stops, endpoint, editable, highlighted, compare));
     });
     inject(DestroyRef).onDestroy(() => this.clear());
   }
@@ -121,9 +126,18 @@ export class RouteMap {
     this.markers = [];
     this.line?.setMap(null);
     this.line = null;
+    this.compareLine?.setMap(null);
+    this.compareLine = null;
   }
 
-  private async render(el: HTMLElement, stops: RouteMapStop[], endpoint: RouteMapEndpoint | null, editable: boolean, highlighted: number | null): Promise<void> {
+  private async render(
+    el: HTMLElement,
+    stops: RouteMapStop[],
+    endpoint: RouteMapEndpoint | null,
+    editable: boolean,
+    highlighted: number | null,
+    compare: { lat: number; lng: number }[] | null
+  ): Promise<void> {
     if (!(await this.ensureMap(el)) || !this.libs || !this.map) return;
     const { AdvancedMarkerElement, PinElement, Polyline, LatLngBounds } = this.libs;
     const map = this.map;
@@ -174,7 +188,18 @@ export class RouteMap {
       path.push({ lat: endpoint.lat, lng: endpoint.lng });
     }
     if (path.length > 1) {
-      this.line = new Polyline({ map, path, strokeColor: COLOR_PLACED, strokeOpacity: 0.55, strokeWeight: 3, clickable: false });
+      this.line = new Polyline({ map, path, strokeColor: COLOR_PLACED, strokeOpacity: 0.7, strokeWeight: 3, clickable: false, zIndex: 2 });
+    }
+    if (compare && compare.length > 1) {
+      // Pointillé gris : l'ordre avant optimisation, pour voir la différence d'un coup d'œil
+      this.compareLine = new Polyline({
+        map,
+        path: compare,
+        strokeOpacity: 0,
+        clickable: false,
+        zIndex: 1,
+        icons: [{ icon: { path: "M 0,-1 0,1", strokeColor: COLOR_COMPARE, strokeOpacity: 0.8, scale: 2 }, offset: "0", repeat: "10px" }]
+      });
     }
 
     const boundsKey = [endpoint ? `${endpoint.lat},${endpoint.lng}` : "", ...stops.map((s) => `${s.id}:${s.lat},${s.lng}`).sort()].join("|");

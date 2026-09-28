@@ -236,4 +236,10 @@
     &--manual { background: #1e7a3c; }
     &--endpoint { background: #2f3840; }
   }
+
+  &__dash {
+    width: 1.25rem;
+    border-top: 2px dashed #8a94a0;
+  }
 }
+

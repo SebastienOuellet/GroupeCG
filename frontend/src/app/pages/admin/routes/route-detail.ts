@@ -6,9 +6,10 @@ import { SettingService } from "../../../core/services/setting.service";
 import { ServiceAddressService } from "../../../core/services/service-address.service";
 import { GoogleMapsService, ResolvedAddress } from "../../../core/services/google-maps.service";
 import { Contract, ContractStatus, RouteModel, ServiceAddress } from "../../../core/models/domain.model";
-import { haversineKm, isGoogleLocationStale, NamedLocation } from "../../../core/models/location.model";
+import { haversineKm, isGoogleLocationStale, NamedLocation, OptimizationProposal } from "../../../core/models/location.model";
 import { AddressAutocomplete } from "../../../shared/address-autocomplete/address-autocomplete";
 import { PinMove, RouteMap, RouteMapEndpoint, RouteMapStop } from "./route-map/route-map";
+import { OptimizationProposalPanel } from "./optimization-proposal/optimization-proposal";
 
 /** Contrats qui font partie de la tournée (actifs) ou le feront (brouillons, ex. après le roulement). */
 const ORDERABLE_STATUSES: ContractStatus[] = ["active", "draft"];
@@ -34,7 +35,7 @@ const labelFromResolved = (r: ResolvedAddress): string => `${r.CivicNumber} ${r.
  */
 @Component({
   selector: "app-route-detail",
-  imports: [RouterLink, CdkDropList, CdkDrag, CdkDragHandle, RouteMap, AddressAutocomplete],
+  imports: [RouterLink, CdkDropList, CdkDrag, CdkDragHandle, RouteMap, AddressAutocomplete, OptimizationProposalPanel],
   templateUrl: "./route-detail.html",
   styleUrl: "./route-detail.scss"
 })
@@ -65,6 +66,31 @@ export class RouteDetail implements OnInit {
   readonly baseEditorOpen = signal(false);
   readonly pendingBase = signal<NamedLocation | null>(null);
   readonly locating = signal(false);
+  readonly optimizing = signal(false);
+  /** Proposition affichée (liste + carte) tant qu'elle n'est ni appliquée ni annulée. */
+  readonly proposal = signal<OptimizationProposal | null>(null);
+  /** Ordre exact proposé : s'il est modifié à la main, on l'enregistre comme ordre manuel. */
+  private proposalKey = "";
+
+  private readonly orderKey = computed(() => this.order().map((c) => c.Id).join(","));
+  readonly proposalEdited = computed(() => this.proposal() !== null && this.orderKey() !== this.proposalKey);
+
+  /** Ordre enregistré de la saison (référence pendant l'aperçu). */
+  private readonly savedOrder = computed(() => {
+    const season = this.season();
+    return this.allContracts().filter((c) => c.SeasonStartYear === season && ORDERABLE_STATUSES.includes(c.Status));
+  });
+
+  /** Tracé de l'ordre enregistré, en pointillé sur la carte pendant l'aperçu. */
+  readonly comparePath = computed(() => {
+    if (!this.proposal()) return null;
+    const e = this.mapEndpoint();
+    const points = this.savedOrder()
+      .filter((c) => hasCoordinates(c.ServiceAddress))
+      .map((c) => ({ lat: Number(c.ServiceAddress!.Latitude), lng: Number(c.ServiceAddress!.Longitude) }));
+    return e && points.length ? [{ lat: e.lat, lng: e.lng }, ...points, { lat: e.lat, lng: e.lng }] : points;
+  });
+
 
   readonly seasons = computed(() =>
     [...new Set(this.allContracts().filter((c) => ORDERABLE_STATUSES.includes(c.Status)).map((c) => c.SeasonStartYear))].sort((a, b) => b - a)
@@ -163,9 +189,43 @@ export class RouteDetail implements OnInit {
 
   /** L'API renvoie déjà l'ordre de passage (placés, puis « à placer »). */
   resetOrder(): void {
-    const season = this.season();
-    this.order.set(this.allContracts().filter((c) => c.SeasonStartYear === season && ORDERABLE_STATUSES.includes(c.Status)));
+    this.order.set(this.savedOrder());
     this.dirty.set(false);
+    this.proposal.set(null);
+    this.proposalKey = "";
+  }
+
+  /**
+   * Demande une proposition au serveur et l'affiche à la place de l'ordre courant (non enregistrée).
+   * Les arrêts que l'optimiseur n'a pas pu placer restent à la fin, dans leur ordre actuel.
+   */
+  async optimize(): Promise<void> {
+    const season = this.season();
+    if (season === null) return;
+    if (this.dirty() && !this.proposal() && !confirm("L'ordre modifié n'est pas enregistré. Le remplacer par la proposition de l'optimiseur ?")) return;
+    this.optimizing.set(true);
+    this.error.set(null);
+    this.info.set(null);
+    try {
+      const proposal = await this.routeService.optimize(this.routeId, season);
+      if (proposal.validateOnly) {
+        this.info.set("Requête validée par Google (mode VALIDATE_ONLY) : aucun ordre calculé, rien de facturé.");
+        return;
+      }
+      const byId = new Map(this.savedOrder().map((c) => [c.Id, c]));
+      const placed = proposal.orderedContractIds.map((id) => byId.get(id)).filter((c): c is Contract => !!c);
+      const placedIds = new Set(placed.map((c) => c.Id));
+      const rest = this.savedOrder().filter((c) => !placedIds.has(c.Id));
+      const next = [...placed, ...rest];
+      this.order.set(next);
+      this.proposal.set(proposal);
+      this.proposalKey = next.map((c) => c.Id).join(",");
+      this.dirty.set(true);
+    } catch (e) {
+      this.error.set((e as Error).message);
+    } finally {
+      this.optimizing.set(false);
+    }
   }
 
   selectSeason(value: string): void {
@@ -206,12 +266,16 @@ export class RouteDetail implements OnInit {
     this.saving.set(true);
     this.error.set(null);
     this.info.set(null);
+    // Proposition gardée telle quelle → tracée « ordre optimisé » ; retouchée → ordre manuel
+    const optimized = this.proposal() !== null && !this.proposalEdited();
     try {
-      const { route, contracts } = await this.routeService.updateSequence(this.routeId, ids);
+      const { route, contracts } = optimized
+        ? await this.routeService.applyOptimization(this.routeId, ids)
+        : await this.routeService.updateSequence(this.routeId, ids);
       this.route.set(route);
       this.allContracts.set(contracts);
       this.resetOrder();
-      this.info.set(`Ordre enregistré (${ids.length} arrêts). Il s'appliquera à la prochaine tournée démarrée.`);
+      this.info.set(`${optimized ? "Ordre optimisé" : "Ordre"} enregistré (${ids.length} arrêts). Il s'appliquera à la prochaine tournée démarrée.`);
     } catch (e) {
       this.error.set((e as Error).message);
     } finally {
@@ -222,6 +286,9 @@ export class RouteDetail implements OnInit {
   cancelOrder(): void {
     this.resetOrder();
   }
+
+  /** Aucun départ/retour → l'optimiseur refuserait. */
+  readonly canOptimize = computed(() => this.endpoint() !== null && this.order().length >= 2);
 
   /** Garde de sortie (route Angular) : ne pas perdre un réordonnancement de 100 arrêts. */
   confirmLeave(): boolean {
