@@ -75,7 +75,17 @@
             · <span class="badge badge--draft">{{ unplacedCount() }} à placer</span>
           }
           @if (straightLineKm() > 0) {
-            · ≈ {{ straightLineKm().toFixed(1) }} km à vol d'oiseau
+            · <span class="measure" title="À vol d'oiseau">🐦 {{ straightLineKm().toFixed(1) }} km</span>
+          }
+          @if (currentRoad(); as road) {
+            ·
+            @if (road.status === "ready") {
+              <span class="measure measure--road" title="Trajet routier (Google)">🚜 {{ roadKm(road)!.toFixed(1) }} km · {{ roadMinutes(road) }} min de route</span>
+            } @else if (road.status === "loading") {
+              <span class="measure">🚜 calcul…</span>
+            } @else {
+              <span class="measure field-error" [title]="road.message">🚜 indisponible</span>
+            }
           }
         </div>
       </div>
@@ -92,7 +102,15 @@
       }
 
       @if (proposal(); as p) {
-        <app-optimization-proposal [proposal]="p" [edited]="proposalEdited()" />
+        <app-optimization-proposal
+          [proposal]="p"
+          [edited]="proposalEdited()"
+          [savedStraightKm]="savedStraightKm()"
+          [currentStraightKm]="straightLineKm()"
+          [savedRoadKm]="roadKm(savedRoad())"
+          [currentRoadKm]="roadKm(currentRoad())"
+          [roadLoading]="currentRoad()?.status === 'loading' || savedRoad()?.status === 'loading'"
+        />
       }
 
       @if (order().length === 0) {
@@ -148,7 +166,7 @@
         }
         <button
           type="button"
-          class="btn-secondary"
+          class="btn-outline btn-optimize"
           [disabled]="!canOptimize() || optimizing() || saving()"
           [title]="endpoint() ? '' : 'Configurez d’abord le dépôt'"
           (click)="optimize()"
@@ -179,6 +197,11 @@
           [editable]="pinEditMode()"
           [highlightedId]="highlightedId()"
           [comparePath]="comparePath()"
+          [roadPath]="roadPath()"
+          [(showRoad)]="showRoad"
+          [(showStraight)]="showStraight"
+          [roadKm]="roadKm(currentRoad())"
+          [straightKm]="straightLineKm()"
           (pinMoved)="onPinMoved($event)"
           (stopClicked)="focusStop($event)"
         />
@@ -187,11 +210,19 @@
           <li class="map-legend__item"><span class="map-legend__dot map-legend__dot--unplaced"></span>À placer</li>
           <li class="map-legend__item"><span class="map-legend__dot map-legend__dot--manual"></span>Pin manuel</li>
           <li class="map-legend__item"><span class="map-legend__dot map-legend__dot--endpoint">D</span>Départ / retour</li>
+          <li class="map-legend__item"><span class="map-legend__line map-legend__line--road"></span>🚜 Trajet routier</li>
+          <li class="map-legend__item"><span class="map-legend__line map-legend__line--straight"></span>🐦 Vol d'oiseau</li>
           @if (proposal()) {
             <li class="map-legend__item"><span class="map-legend__dash"></span>Ordre enregistré</li>
           }
         </ul>
-        <p class="form-hint route-map-card__note">Le tracé est à vol d'oiseau : il montre l'ordre de passage, pas le chemin routier.</p>
+        @if (roadError(currentRoad()); as message) {
+          <p class="field-error route-map-card__note">
+            Trajet routier indisponible ({{ message }}). Vérifiez que « Routes API » est activée et permise pour la clé Google Maps.
+          </p>
+        } @else {
+          <p class="form-hint route-map-card__note">🚜 = chemin par les rues (Google, recalculé après chaque changement d'ordre). 🐦 = ligne droite entre les arrêts.</p>
+        }
       } @else {
         <p class="empty-state">Carte indisponible : clé Google Maps non configurée.</p>
       }

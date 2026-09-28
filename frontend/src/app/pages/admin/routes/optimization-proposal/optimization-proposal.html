@@ -4,31 +4,47 @@
     <strong>Proposition — {{ providerLabel() }}</strong>
     <span class="proposal__elapsed">{{ p.elapsedMs }} ms</span>
   </div>
-  <div class="proposal__stats">
-    <div class="proposal__stat">
-      <span>Ordre enregistré</span>
-      <strong>{{ p.current.straightLineKm.toFixed(1) }} km</strong>
-    </div>
-    <div class="proposal__arrow">→</div>
-    <div class="proposal__stat proposal__stat--new">
-      <span>Proposé</span>
-      <strong>{{ p.proposed.straightLineKm.toFixed(1) }} km</strong>
-    </div>
-    @if (savingPercent(); as pct) {
-      <div class="proposal__gain" [class.proposal__gain--none]="pct <= 0">{{ pct > 0 ? "−" + pct + " %" : "aucun gain" }}</div>
-    } @else {
-      <div class="proposal__gain proposal__gain--none">aucun gain</div>
-    }
-  </div>
+
+  <table class="proposal__table">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Ordre enregistré</th>
+        <th>{{ edited() ? "Ordre affiché" : "Proposé" }}</th>
+        <th>Gain</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (m of measures(); track m.icon) {
+        <tr>
+          <th scope="row"><span aria-hidden="true">{{ m.icon }}</span> {{ m.label }}</th>
+          <td>{{ m.saved !== null ? m.saved.toFixed(1) + " km" : roadLoading() ? "calcul…" : "—" }}</td>
+          <td class="proposal__new">{{ m.proposed !== null ? m.proposed.toFixed(1) + " km" : roadLoading() ? "calcul…" : "—" }}</td>
+          <td>
+            @if (m.gainPercent !== null) {
+              <span class="proposal__gain" [class.proposal__gain--none]="m.gainPercent === 0" [class.proposal__gain--worse]="m.gainPercent < 0">
+                {{ m.gainPercent > 0 ? "−" + m.gainPercent : m.gainPercent < 0 ? "+" + -m.gainPercent : "0" }} %
+              </span>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
   <p class="proposal__note">
-    Distances à vol d'oiseau pour comparer à armes égales.
-    @if (p.provider === "google" && p.proposed.distanceKm !== null) {
-      Selon Google : {{ p.proposed.distanceKm.toFixed(1) }} km par la route@if (p.proposed.durationMinutes !== null) {, ≈ {{ p.proposed.durationMinutes }} min avec le déneigement}.
+    @if (p.provider === "google" && p.proposed.durationMinutes !== null) {
+      Selon Google : ≈ {{ p.proposed.durationMinutes }} min avec le déneigement.
     } @else if (p.proposed.durationMinutes !== null) {
       Durée indicative ≈ {{ p.proposed.durationMinutes }} min (30 km/h + temps par entrée).
     }
     Pointillé gris sur la carte = ordre enregistré.
   </p>
+  @if (roadWorse()) {
+    <p class="proposal__warning">
+      Plus court à vol d'oiseau mais plus long par la route : l'optimiseur local ne connaît pas les rues. Gardez votre ordre ou retouchez la proposition.
+    </p>
+  }
   @if (p.skipped.length) {
     <p class="proposal__skipped">
       {{ p.skipped.length }} arrêt(s) non placé(s), laissé(s) à la fin :

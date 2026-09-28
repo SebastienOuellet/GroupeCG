@@ -237,9 +237,22 @@
     &--endpoint { background: #2f3840; }
   }
 
-  &__dash {
+  &__line {
     width: 1.25rem;
-    border-top: 2px dashed #8a94a0;
+    border-radius: 2px;
+
+    &--road { height: 5px; background: #1a73e8; }
+    &--straight { height: 2px; background: #052261; opacity: 0.6; }
   }
+
+  &__dash { width: 1.25rem; border-top: 2px dashed #8a94a0; }
 }
 
+
+.btn-optimize { border-color: var(--color-primary); color: var(--color-primary); font-weight: 700; }
+
+.measure {
+  white-space: nowrap;
+
+  &--road { font-weight: 600; color: var(--color-primary); }
+}

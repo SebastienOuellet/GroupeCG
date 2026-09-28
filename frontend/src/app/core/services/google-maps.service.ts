@@ -29,6 +29,16 @@ export interface GeocodedPlace extends LatLng {
   placeId: string | null;
 }
 
+/** Trajet routier calculé par Google (Routes API) : affiché seulement, jamais stocké. */
+export interface DrivingRoute {
+  path: LatLng[];
+  distanceMeters: number;
+  durationSeconds: number;
+}
+
+/** Routes API : 25 points intermédiaires max par requête (+ origine + destination). */
+const MAX_INTERMEDIATES = 25;
+
 /** Classes Google nécessaires à une carte avec marqueurs numérotés. */
 export interface MapLibraries {
   Map: typeof google.maps.Map;
@@ -144,6 +154,42 @@ export class GoogleMapsService {
     const place = new Place({ id: placeId });
     await place.fetchFields({ fields: ["location"] });
     return place.location ? { lat: place.location.lat(), lng: place.location.lng() } : null;
+  }
+
+  /**
+   * Trajet routier réel (voiture) qui passe par `points` dans l'ordre : départ, arrêts, retour.
+   * Au-delà de 25 arrêts intermédiaires, découpé en tronçons consécutifs (100 arrêts ≈ 4-5 requêtes).
+   * Requiert « Routes API » activée pour la clé du navigateur. Rien n'est enregistré (conditions Google).
+   */
+  async computeDrivingRoute(points: LatLng[]): Promise<DrivingRoute> {
+    this.ensureOptions();
+    const { Route } = await importLibrary("routes");
+    const chunks: LatLng[][] = [];
+    for (let i = 0; i < points.length - 1; i += MAX_INTERMEDIATES + 1) {
+      chunks.push(points.slice(i, i + MAX_INTERMEDIATES + 2));
+    }
+    const results = await Promise.all(
+      chunks.map(async (chunk) => {
+        const { routes } = await Route.computeRoutes({
+          origin: chunk[0],
+          destination: chunk[chunk.length - 1],
+          intermediates: chunk.slice(1, -1).map((location) => ({ location })),
+          travelMode: "DRIVING",
+          polylineQuality: "OVERVIEW",
+          language: LANGUAGE,
+          region: "ca",
+          fields: ["path", "distanceMeters", "durationMillis"]
+        });
+        const route = routes?.[0];
+        if (!route) throw new Error("aucun trajet trouvé par Google");
+        return route;
+      })
+    );
+    return {
+      path: results.flatMap((r) => (r.path ?? []).map((p) => ({ lat: p.lat, lng: p.lng }))),
+      distanceMeters: results.reduce((sum, r) => sum + (r.distanceMeters ?? 0), 0),
+      durationSeconds: Math.round(results.reduce((sum, r) => sum + (r.durationMillis ?? 0), 0) / 1000)
+    };
   }
 
   /** Charge les librairies de carte et de marqueurs (une seule fois, au premier affichage de carte). */

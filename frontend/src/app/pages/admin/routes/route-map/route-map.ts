@@ -1,4 +1,4 @@
-import { Component, DestroyRef, ElementRef, effect, inject, input, output, signal, untracked, viewChild } from "@angular/core";
+import { Component, DestroyRef, ElementRef, effect, inject, input, model, output, signal, untracked, viewChild } from "@angular/core";
 import { GoogleMapsService, LatLng, MapLibraries } from "../../../../core/services/google-maps.service";
 
 /** Arrêt affiché sur la carte ; `number` null = pas encore placé dans l'ordre. */
@@ -27,6 +27,8 @@ const COLOR_UNPLACED = "#a06000";
 const COLOR_MANUAL = "#1e7a3c";
 const COLOR_ENDPOINT = "#2f3840";
 const COLOR_COMPARE = "#8a94a0";
+const COLOR_STRAIGHT = "#052261";
+const COLOR_ROAD = "#1a73e8";
 /** Zoom si un seul point : Estrie, échelle d'une rue. */
 const SINGLE_POINT_ZOOM = 15;
 const DEFAULT_CENTER = { lat: 45.4042, lng: -71.8929 }; // Sherbrooke
@@ -45,14 +47,29 @@ const readLatLng = (position: google.maps.marker.AdvancedMarkerElement["position
 @Component({
   selector: "app-route-map",
   template: `
+    <div class="layer-toggles" role="group" aria-label="Tracés affichés">
+      <button type="button" class="layer-toggle" [class.layer-toggle--on]="showRoad()" [attr.aria-pressed]="showRoad()" (click)="showRoad.set(!showRoad())">
+        🚜 Trajet routier @if (roadKm(); as km) { <strong>{{ km.toFixed(1) }} km</strong> }
+      </button>
+      <button type="button" class="layer-toggle" [class.layer-toggle--on]="showStraight()" [attr.aria-pressed]="showStraight()" (click)="showStraight.set(!showStraight())">
+        🐦 Vol d'oiseau @if (straightKm(); as km) { <strong>{{ km.toFixed(1) }} km</strong> }
+      </button>
+    </div>
     <div class="route-map" #container></div>
     @if (state() === "error") {
       <p class="route-map__error">Carte indisponible : {{ errorMessage() }}</p>
     }
   `,
   styles: `
-    :host { display: block; position: relative; }
-    .route-map { width: 100%; height: 100%; min-height: 320px; border-radius: 8px; background: #e9ecef; }
+    :host { display: flex; flex-direction: column; position: relative; }
+    .route-map { flex: 1; width: 100%; min-height: 320px; border-radius: 8px; background: #e9ecef; }
+    .layer-toggles { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .layer-toggle {
+      display: inline-flex; align-items: center; gap: 0.375rem; min-height: 36px; padding: 0.3rem 0.75rem;
+      border: 1px solid #d0d5dd; border-radius: 99px; background: #fff; color: #7a8591;
+      font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+    }
+    .layer-toggle--on { border-color: var(--color-primary); background: #eef1f6; color: var(--color-primary); }
     .route-map__error { position: absolute; inset: auto 0.75rem 0.75rem; margin: 0; padding: 0.5rem 0.75rem; background: #fff; border-radius: 6px; font-size: 0.8125rem; color: #a02020; }
   `
 })
@@ -65,6 +82,13 @@ export class RouteMap {
   readonly highlightedId = input<number | null>(null);
   /** Tracé de comparaison (ex. ordre enregistré pendant l'aperçu d'une optimisation), en pointillé. */
   readonly comparePath = input<{ lat: number; lng: number }[] | null>(null);
+  /** Trajet routier réel (Routes API) ; null = pas encore calculé ou indisponible. */
+  readonly roadPath = input<{ lat: number; lng: number }[] | null>(null);
+  readonly showRoad = model(true);
+  readonly showStraight = model(true);
+  /** Km affichés sur les bascules (null = pas encore calculé). */
+  readonly roadKm = input<number | null>(null);
+  readonly straightKm = input<number | null>(null);
 
   readonly pinMoved = output<PinMove>();
   readonly stopClicked = output<number>();
@@ -78,6 +102,7 @@ export class RouteMap {
   private markers: google.maps.marker.AdvancedMarkerElement[] = [];
   private line: google.maps.Polyline | null = null;
   private compareLine: google.maps.Polyline | null = null;
+  private roadLine: google.maps.Polyline | null = null;
   /** Recadrer seulement quand l'ensemble des points change, pas à chaque réordonnancement. */
   private lastBoundsKey = "";
 
@@ -88,8 +113,9 @@ export class RouteMap {
       const editable = this.editable();
       const highlighted = this.highlightedId();
       const compare = this.comparePath();
+      const layers = { road: this.showRoad() ? this.roadPath() : null, straight: this.showStraight() };
       const el = this.container().nativeElement;
-      untracked(() => void this.render(el, stops, endpoint, editable, highlighted, compare));
+      untracked(() => void this.render(el, stops, endpoint, editable, highlighted, compare, layers));
     });
     inject(DestroyRef).onDestroy(() => this.clear());
   }
@@ -128,6 +154,8 @@ export class RouteMap {
     this.line = null;
     this.compareLine?.setMap(null);
     this.compareLine = null;
+    this.roadLine?.setMap(null);
+    this.roadLine = null;
   }
 
   private async render(
@@ -136,7 +164,8 @@ export class RouteMap {
     endpoint: RouteMapEndpoint | null,
     editable: boolean,
     highlighted: number | null,
-    compare: { lat: number; lng: number }[] | null
+    compare: { lat: number; lng: number }[] | null,
+    layers: { road: { lat: number; lng: number }[] | null; straight: boolean }
   ): Promise<void> {
     if (!(await this.ensureMap(el)) || !this.libs || !this.map) return;
     const { AdvancedMarkerElement, PinElement, Polyline, LatLngBounds } = this.libs;
@@ -187,8 +216,22 @@ export class RouteMap {
       path.unshift({ lat: endpoint.lat, lng: endpoint.lng });
       path.push({ lat: endpoint.lat, lng: endpoint.lng });
     }
-    if (path.length > 1) {
-      this.line = new Polyline({ map, path, strokeColor: COLOR_PLACED, strokeOpacity: 0.7, strokeWeight: 3, clickable: false, zIndex: 2 });
+    // Vol d'oiseau : trait fin (l'ordre de passage)
+    if (layers.straight && path.length > 1) {
+      this.line = new Polyline({ map, path, strokeColor: COLOR_STRAIGHT, strokeOpacity: layers.road ? 0.45 : 0.7, strokeWeight: 2, clickable: false, zIndex: 2 });
+    }
+    // Trajet routier : le chemin que le tracteur prend, avec le sens de circulation
+    if (layers.road && layers.road.length > 1) {
+      this.roadLine = new Polyline({
+        map,
+        path: layers.road,
+        strokeColor: COLOR_ROAD,
+        strokeOpacity: 0.85,
+        strokeWeight: 5,
+        clickable: false,
+        zIndex: 3,
+        icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_OPEN_ARROW, scale: 2.2, strokeColor: "#fff", strokeWeight: 2 }, offset: "40px", repeat: "120px" }]
+      });
     }
     if (compare && compare.length > 1) {
       // Pointillé gris : l'ordre avant optimisation, pour voir la différence d'un coup d'œil

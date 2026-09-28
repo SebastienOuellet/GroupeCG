@@ -1,10 +1,10 @@
-import { Component, computed, inject, OnInit, signal } from "@angular/core";
+import { Component, computed, DestroyRef, effect, inject, OnInit, signal } from "@angular/core";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from "@angular/cdk/drag-drop";
 import { RouteService } from "../../../core/services/route.service";
 import { SettingService } from "../../../core/services/setting.service";
 import { ServiceAddressService } from "../../../core/services/service-address.service";
-import { GoogleMapsService, ResolvedAddress } from "../../../core/services/google-maps.service";
+import { DrivingRoute, GoogleMapsService, LatLng, ResolvedAddress } from "../../../core/services/google-maps.service";
 import { Contract, ContractStatus, RouteModel, ServiceAddress } from "../../../core/models/domain.model";
 import { haversineKm, isGoogleLocationStale, NamedLocation, OptimizationProposal } from "../../../core/models/location.model";
 import { AddressAutocomplete } from "../../../shared/address-autocomplete/address-autocomplete";
@@ -26,6 +26,27 @@ const toNumber = (value: number | string | null | undefined): number | null =>
 
 const hasCoordinates = (address: ServiceAddress | undefined): address is ServiceAddress =>
   !!address && toNumber(address.Latitude) !== null && toNumber(address.Longitude) !== null;
+
+/** Délai avant de recalculer le trajet routier après un réordonnancement (évite une requête par glisser). */
+const ROAD_DEBOUNCE_MS = 1200;
+
+type RoadState = { status: "loading" } | { status: "ready"; route: DrivingRoute } | { status: "error"; message: string };
+
+/** Départ → arrêts localisés (dans l'ordre) → retour. */
+const tourPoints = (contracts: Contract[], endpoint: { lat: number; lng: number } | null): LatLng[] => {
+  const stops = contracts
+    .filter((c) => hasCoordinates(c.ServiceAddress))
+    .map((c) => ({ lat: Number(c.ServiceAddress!.Latitude), lng: Number(c.ServiceAddress!.Longitude) }));
+  return endpoint && stops.length ? [endpoint, ...stops, endpoint] : stops;
+};
+
+const pointsKey = (points: LatLng[]): string => points.map((p) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`).join(";");
+
+const straightKm = (points: LatLng[]): number => {
+  let km = 0;
+  for (let i = 1; i < points.length; i++) km += haversineKm(points[i - 1], points[i]);
+  return km;
+};
 
 const labelFromResolved = (r: ResolvedAddress): string => `${r.CivicNumber} ${r.Street}, ${r.City}`.trim();
 
@@ -81,15 +102,33 @@ export class RouteDetail implements OnInit {
     return this.allContracts().filter((c) => c.SeasonStartYear === season && ORDERABLE_STATUSES.includes(c.Status));
   });
 
-  /** Tracé de l'ordre enregistré, en pointillé sur la carte pendant l'aperçu. */
+  private readonly endpointPoint = computed<LatLng | null>(() => {
+    const e = this.mapEndpoint();
+    return e ? { lat: e.lat, lng: e.lng } : null;
+  });
+  readonly currentPoints = computed(() => tourPoints(this.order(), this.endpointPoint()));
+  private readonly savedPoints = computed(() => tourPoints(this.savedOrder(), this.endpointPoint()));
+
+  /* ---- Deux mesures : 🐦 vol d'oiseau (calcul local, gratuit) et 🚜 trajet routier (Google Routes API) ---- */
+  readonly showRoad = signal(true);
+  readonly showStraight = signal(true);
+  /** Cache par suite de points : revenir à un ordre déjà vu ne coûte aucune requête. */
+  private readonly roadCache = signal<Record<string, RoadState>>({});
+  private readonly roadFor = (points: LatLng[]): RoadState | null => (points.length > 1 ? (this.roadCache()[pointsKey(points)] ?? null) : null);
+  readonly currentRoad = computed(() => this.roadFor(this.currentPoints()));
+  readonly savedRoad = computed(() => this.roadFor(this.savedPoints()));
+  readonly roadPath = computed(() => {
+    const road = this.currentRoad();
+    return road?.status === "ready" ? road.route.path : null;
+  });
+
+  /** Pendant l'aperçu : l'ordre enregistré en pointillé (son trajet routier s'il est connu et affiché, sinon à vol d'oiseau). */
   readonly comparePath = computed(() => {
     if (!this.proposal()) return null;
-    const e = this.mapEndpoint();
-    const points = this.savedOrder()
-      .filter((c) => hasCoordinates(c.ServiceAddress))
-      .map((c) => ({ lat: Number(c.ServiceAddress!.Latitude), lng: Number(c.ServiceAddress!.Longitude) }));
-    return e && points.length ? [{ lat: e.lat, lng: e.lng }, ...points, { lat: e.lat, lng: e.lng }] : points;
+    const saved = this.savedRoad();
+    return this.showRoad() && saved?.status === "ready" ? saved.route.path : this.savedPoints();
   });
+  readonly savedStraightKm = computed(() => straightKm(this.savedPoints()));
 
 
   readonly seasons = computed(() =>
@@ -136,19 +175,48 @@ export class RouteDetail implements OnInit {
   );
 
   /** Distance à vol d'oiseau départ → arrêts → retour : repère pour comparer deux ordres, pas un kilométrage routier. */
-  readonly straightLineKm = computed(() => {
-    const points = this.mapStops().map((s) => ({ lat: s.lat, lng: s.lng }));
-    const e = this.mapEndpoint();
-    if (e && points.length) {
-      points.unshift({ lat: e.lat, lng: e.lng });
-      points.push({ lat: e.lat, lng: e.lng });
-    }
-    let km = 0;
-    for (let i = 1; i < points.length; i++) km += haversineKm(points[i - 1], points[i]);
-    return km;
-  });
+  readonly straightLineKm = computed(() => straightKm(this.currentPoints()));
 
   private routeId!: number;
+
+  constructor() {
+    // Trajet routier de l'ordre affiché (et de l'ordre enregistré pendant un aperçu), recalculé après une pause
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    effect(() => {
+      const wanted = [this.currentPoints(), ...(this.proposal() ? [this.savedPoints()] : [])];
+      clearTimeout(timer);
+      if (!this.mapsEnabled) return;
+      timer = setTimeout(() => wanted.forEach((points) => void this.ensureRoad(points)), ROAD_DEBOUNCE_MS);
+    });
+    inject(DestroyRef).onDestroy(() => clearTimeout(timer));
+  }
+
+  private async ensureRoad(points: LatLng[]): Promise<void> {
+    if (points.length < 2) return;
+    const key = pointsKey(points);
+    const existing = this.roadCache()[key];
+    if (existing && existing.status !== "error") return;
+    this.roadCache.update((cache) => ({ ...cache, [key]: { status: "loading" } }));
+    let state: RoadState;
+    try {
+      state = { status: "ready", route: await this.maps.computeDrivingRoute(points) };
+    } catch (e) {
+      state = { status: "error", message: (e as Error).message };
+    }
+    this.roadCache.update((cache) => ({ ...cache, [key]: state }));
+  }
+
+  roadKm(state: RoadState | null): number | null {
+    return state?.status === "ready" ? state.route.distanceMeters / 1000 : null;
+  }
+
+  roadMinutes(state: RoadState | null): number | null {
+    return state?.status === "ready" ? Math.round(state.route.durationSeconds / 60) : null;
+  }
+
+  roadError(state: RoadState | null): string | null {
+    return state?.status === "error" ? state.message : null;
+  }
 
   async ngOnInit(): Promise<void> {
     this.routeId = Number(this.activatedRoute.snapshot.paramMap.get("id"));
