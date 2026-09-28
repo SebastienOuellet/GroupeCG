@@ -5,6 +5,7 @@
 /backend/.env*
 /backend/logs/
 /backend/firebaseConfig/*.json
+/backend/googleConfig/*.json
 
 /frontend/.angular/
 /frontend/dist/

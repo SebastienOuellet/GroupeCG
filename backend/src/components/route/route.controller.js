@@ -1,4 +1,5 @@
 import * as routeService from "./route.service.js";
+import * as routeOptimizationService from "./routeOptimization.service.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { USER_ROLES } from "../user/user.constants.js";
 
@@ -44,6 +45,24 @@ const updateRouteSequence = async (req, res, next) => {
   }
 };
 
+/** Corps : { seasonYear } → proposition d'ordre, non enregistrée. */
+const optimizeRoute = async (req, res, next) => {
+  try {
+    res.status(200).json(await routeOptimizationService.optimizeRoute(req.params.id, req.body ?? {}));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Corps : { contractIds: [..] } — l'ordre retenu après optimisation (éventuellement ajusté). */
+const applyOptimizedSequence = async (req, res, next) => {
+  try {
+    res.status(200).json(await routeOptimizationService.applyOptimizedSequence(req.params.id, req.body?.contractIds, req.user?.Id));
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createRoute = async (req, res, next) => {
   try {
     const route = await routeService.createRoute(req.body);
@@ -77,6 +96,8 @@ export const routeController = {
     { method: "GET", url: "/:id", middleware: [readAccess, getRouteById], authRequired: true },
     { method: "GET", url: "/:id/contracts", middleware: [readAccess, getRouteContracts], authRequired: true },
     { method: "POST", url: "", middleware: [adminOnly, createRoute], authRequired: true },
+    { method: "POST", url: "/:id/optimize", middleware: [adminOnly, optimizeRoute], authRequired: true },
+    { method: "POST", url: "/:id/optimize/apply", middleware: [adminOnly, applyOptimizedSequence], authRequired: true },
     { method: "PUT", url: "/:id/sequence", middleware: [adminOnly, updateRouteSequence], authRequired: true },
     { method: "PUT", url: "/:id", middleware: [adminOnly, updateRoute], authRequired: true },
     { method: "DELETE", url: "/:id", middleware: [adminOnly, deactivateRoute], authRequired: true }

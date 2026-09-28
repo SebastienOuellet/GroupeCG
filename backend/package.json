@@ -19,6 +19,7 @@
   "author": "Techqueb",
   "license": "ISC",
   "dependencies": {
+    "@googlemaps/routeoptimization": "^0.7.0",
     "cors": "^2.8.5",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^16.4.7",

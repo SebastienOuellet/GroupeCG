@@ -48,6 +48,15 @@ export const defaultConfig = {
   RENEWAL_REMINDER_DAYS: Number(process.env.RENEWAL_REMINDER_DAYS) || 45,
   TWILIO_VALIDATE_SIGNATURE: process.env.TWILIO_VALIDATE_SIGNATURE !== "false",
 
+  /* Optimisation des routes (src/routing/). Dry-run par défaut : optimiseur local, aucun appel Google. */
+  ROUTE_OPTIMIZATION_DRY_RUN: process.env.ROUTE_OPTIMIZATION_DRY_RUN !== "false",
+  /** true = Google valide la requête sans la résoudre ni la facturer (test de configuration). */
+  ROUTE_OPTIMIZATION_VALIDATE_ONLY: process.env.ROUTE_OPTIMIZATION_VALIDATE_ONLY === "true",
+  ROUTE_OPTIMIZATION_TIMEOUT_SECONDS: Number(process.env.ROUTE_OPTIMIZATION_TIMEOUT_SECONDS) || 30,
+  GOOGLE_CLOUD_PROJECT_ID: process.env.GOOGLE_CLOUD_PROJECT_ID,
+  /** Fichier JSON du compte de service dans backend/googleConfig/ (non versionné). */
+  GOOGLE_ROUTE_OPTIMIZATION_CREDENTIAL_FILE: process.env.GOOGLE_ROUTE_OPTIMIZATION_CREDENTIAL_FILE,
+
   /* En-tête du contrat PDF. Les numéros TPS/TVQ sont obligatoires sur une facture au Québec. */
   COMPANY_NAME: process.env.COMPANY_NAME || "Groupe CG",
   /** Raison sociale utilisée dans les clauses (ex. « Entreprises Christian Giroux ») ; défaut : COMPANY_NAME. */
