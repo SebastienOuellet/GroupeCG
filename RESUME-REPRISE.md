@@ -1,6 +1,6 @@
 # GroupeCG — résumé de reprise
 
-> Dernière mise à jour : 2026-09-28. **Point d'entrée unique pour reprendre le projet sur n'importe quel PC ou dans un nouveau chat Claude.** Lire ce fichier, puis le plan pertinent (voir « Documents du repo »).
+> Dernière mise à jour : 2026-09-28 (plan GPS ajouté). **Point d'entrée unique pour reprendre le projet sur n'importe quel PC ou dans un nouveau chat Claude.** Lire ce fichier, puis le plan pertinent (voir « Documents du repo »).
 
 ## Repo
 https://github.com/SebastienOuellet/GroupeCG (branche `main`)
@@ -11,6 +11,7 @@ https://github.com/SebastienOuellet/GroupeCG (branche `main`)
 | `RESUME-REPRISE.md` | Ce fichier : état actuel, démarrage, reste à faire, règles de travail |
 | `PLAN-ORIGINAL.md` | Plan initial (phases 1-5), **entièrement implémenté** — référence du modèle de données et des décisions |
 | `PLAN-ROUTES-GOOGLE.md` | Chantier en cours : optimisation des routes avec Google Route Optimization API — **R1 (ordre des arrêts) livrée**, R0/R2+ à faire |
+| `PLAN-GPS-TRACTEURS.md` | Prochain chantier : géolocalisation des tracteurs (carte en direct admin et portail, « Fait » automatique, collecte des durées réelles) — **planifié, rien d'implémenté** |
 
 Ces fichiers sont aussi copiés dans les docs du projet claude.ai « GroupeCG ». **Le repo fait foi** : en cas d'écart, c'est la version sur `main` qui est la bonne.
 
@@ -86,6 +87,10 @@ Migrations : `npm run migrate` dans `backend/` (la DB DigitalOcean est partagée
 - Reste : valider dans le navigateur la page de la route (trajet 🚜, heure de retour), Paramètres › Routes (durées), la taille d'entrée, et le parcours opérateur (« Naviguer » sur téléphone).
 - Avant la prod : **Routes API** activée et permise pour la clé du navigateur, **Map ID** Google dans `googleMapsMapId`, alerte de budget + quota sur Route Optimization et Routes API.
 - Plus tard si besoin : heures limites (`ServiceDeadline` → `timeWindows`) pour commerces/garderies.
+
+### Géolocalisation des tracteurs (voir `PLAN-GPS-TRACTEURS.md`)
+- Plan rédigé le 28 septembre, à commencer par G1 (réception des positions OsmAnd/Traccar Client + page `/suivi`).
+- V1 = G1 + G2 (« Fait » automatique) + G3 (suivi dans le portail). Pas de SMS automatique d'arrivée avant d'avoir calibré les durées (G4).
 
 ### Autres
 - Valider visuellement le parcours opérateur complet dans le navigateur (compte Firebase avec Role="operator", route assignée, démarrer/cocher/terminer).
