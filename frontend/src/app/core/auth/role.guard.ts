@@ -3,9 +3,7 @@ import { CanMatchFn, Router } from "@angular/router";
 import { AuthStore } from "./auth.store";
 import { UserService } from "../user.service";
 import { UserRole } from "../models/user.model";
-
-/** Page affichée à un compte authentifié qui n'a pas encore de rôle. */
-export const PENDING_ACCESS_PATH = "/acces-en-attente";
+import { ensureDbUser, loginRedirect, PENDING_ACCESS_PATH, pendingAccessRedirect } from "./auth-redirect";
 
 /**
  * Guard de rôle. À composer APRÈS authGuard dans canMatch.
@@ -20,12 +18,8 @@ export const roleGuard = (...allowed: UserRole[]): CanMatchFn => {
     const userService = inject(UserService);
     const router = inject(Router);
 
-    if (!authStore.dbUser()) {
-      try {
-        authStore.setDbUser(await userService.getMe());
-      } catch {
-        return router.createUrlTree(["/login"]);
-      }
+    if (!(await ensureDbUser(authStore, userService))) {
+      return authStore.isAuthenticated() ? pendingAccessRedirect(router) : loginRedirect(router);
     }
 
     const role = authStore.role();
