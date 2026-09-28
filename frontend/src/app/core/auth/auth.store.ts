@@ -1,6 +1,6 @@
 import { computed, inject, Injectable, signal } from "@angular/core";
 import {
-  onAuthStateChanged,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   signOut,
   type User as FirebaseUser
@@ -9,8 +9,15 @@ import { FirebaseService } from "../firebase.service";
 import { User } from "../models/user.model";
 
 /**
- * État d'authentification centralisé (signals). Le token est mis en cache pour
- * l'intercepteur HTTP; Firebase le rafraîchit automatiquement toutes les heures.
+ * État d'authentification centralisé (signals).
+ *
+ * Le token Firebase expire après 1 h. L'intercepteur HTTP ne lit donc pas un
+ * token mis en cache : il appelle `getIdToken()` avant chaque requête. Firebase
+ * renvoie alors son token en cache s'il est encore valide (aucun appel réseau),
+ * ou en obtient un nouveau s'il expire dans moins de 5 min. Ça couvre aussi le
+ * portable sorti de veille, où le minuteur de rafraîchissement du SDK n'a pas
+ * tourné. `onIdTokenChanged` (et non `onAuthStateChanged`) garde le signal
+ * `token` à jour à chaque rafraîchissement.
  * `dbUser` porte le profil applicatif (dont le Role) chargé depuis l'API.
  */
 @Injectable({
@@ -41,7 +48,7 @@ export class AuthStore {
       return;
     }
 
-    onAuthStateChanged(auth, async (firebaseUser) => {
+    onIdTokenChanged(auth, async (firebaseUser) => {
       this.user.set(firebaseUser);
       this.token.set(firebaseUser ? await firebaseUser.getIdToken() : null);
       if (!firebaseUser) {
@@ -68,11 +75,21 @@ export class AuthStore {
     await signOut(this.firebaseService.auth);
   }
 
-  async refreshToken(): Promise<string | null> {
-    const user = this.user();
+  /**
+   * Token valide pour un appel API, ou `null` si personne n'est connecté.
+   * `forceRefresh` : ignore le cache (utilisé après un 401 du backend).
+   * Si Firebase est injoignable (hors ligne), on renvoie le dernier token connu :
+   * la requête échouera alors avec sa vraie erreur réseau plutôt qu'un faux 401.
+   */
+  async getIdToken(forceRefresh = false): Promise<string | null> {
+    const user = this.firebaseService.auth?.currentUser ?? this.user();
     if (!user) return null;
-    const token = await user.getIdToken(true);
-    this.token.set(token);
-    return token;
+    try {
+      const token = await user.getIdToken(forceRefresh);
+      this.token.set(token);
+      return token;
+    } catch {
+      return this.token();
+    }
   }
 }

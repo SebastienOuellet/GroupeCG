@@ -45,6 +45,8 @@ Chaque phase a été vérifiée par script (13 à 25 tests métier par phase, to
 - Frontend : bouton « ⚡ Optimiser » sur `/routes/:id`, aperçu avant/après (gain %, ancien tracé en pointillé), « Appliquer la proposition »
 - Tourne **sans Google** (`ROUTE_OPTIMIZATION_DRY_RUN=true` par défaut). Pour Google : phase R0 puis `backend/googleConfig/README.md`.
 
+- Session admin/opérateur : token Firebase obtenu frais à chaque requête (`AuthStore.getIdToken`, `onIdTokenChanged`), 401 → token forcé et requête rejouée une fois, 401 persistant → déconnexion et `/login`. Plus de « Token d'authentification invalide ou expiré » après 1 h ou une mise en veille.
+
 - ⚠️ **Migration `20260928100001-route-sequence` à exécuter sur la DB DigitalOcean** (`npm run migrate`) si ce n'est pas déjà fait — sans elle, les tournées plantent (colonne `Sequence` absente).
 
 Détails complets : `git log` (messages de commit en français, avec le pourquoi).
