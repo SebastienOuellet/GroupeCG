@@ -65,6 +65,22 @@ const updateRouteOptimizationSettings = async (req, res, next) => {
   }
 };
 
+const getTrackingSettings = async (req, res, next) => {
+  try {
+    res.status(200).json(await settingService.getTrackingSettings());
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateTrackingSettings = async (req, res, next) => {
+  try {
+    res.status(200).json(await settingService.updateTrackingSettings(req.body, req.user?.Id ?? null));
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const settingController = {
   routes: [
     { method: "GET", url: "/contract-terms", middleware: [adminOnly, getContractTerms], authRequired: true },
@@ -73,6 +89,8 @@ export const settingController = {
     { method: "GET", url: "/route-depot", middleware: [adminOnly, getRouteDepot], authRequired: true },
     { method: "PUT", url: "/route-depot", middleware: [adminOnly, updateRouteDepot], authRequired: true },
     { method: "GET", url: "/route-optimization", middleware: [adminOnly, getRouteOptimizationSettings], authRequired: true },
-    { method: "PUT", url: "/route-optimization", middleware: [adminOnly, updateRouteOptimizationSettings], authRequired: true }
+    { method: "PUT", url: "/route-optimization", middleware: [adminOnly, updateRouteOptimizationSettings], authRequired: true },
+    { method: "GET", url: "/tracking", middleware: [adminOnly, getTrackingSettings], authRequired: true },
+    { method: "PUT", url: "/tracking", middleware: [adminOnly, updateTrackingSettings], authRequired: true }
   ]
 };

@@ -22,6 +22,10 @@ export default (sequelize) => {
       OperatorUserId: {
         type: DataTypes.INTEGER
       },
+      /** Tracteur proposé au démarrage d'une tournée (l'opérateur peut en choisir un autre). */
+      DefaultVehicleId: {
+        type: DataTypes.INTEGER
+      },
       SortOrder: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -58,6 +62,7 @@ export default (sequelize) => {
   Route.associate = (db) => {
     Route.belongsTo(db.User, { foreignKey: "OperatorUserId", as: "Operator" });
     Route.belongsTo(db.User, { foreignKey: "SequenceUpdatedByUserId", as: "SequenceUpdatedBy" });
+    Route.belongsTo(db.Vehicle, { foreignKey: "DefaultVehicleId", as: "DefaultVehicle" });
     Route.hasMany(db.Contract, { foreignKey: "RouteId", as: "Contracts" });
     Route.hasMany(db.RouteRun, { foreignKey: "RouteId", as: "Runs" });
   };

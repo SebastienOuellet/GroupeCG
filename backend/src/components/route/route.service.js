@@ -3,9 +3,10 @@ import { BadRequestError, NotFoundError } from "../../errors/Errors.js";
 import { USER_ROLES } from "../user/user.constants.js";
 import { logger } from "../../config/logger.js";
 import { keepLocationDateIfUnchanged, normalizeNamedLocation } from "../../shared/location.js";
+import { resolveVehicleId } from "../vehicle/vehicle.service.js";
 import { MAX_ROUTE_SEQUENCE_LENGTH, ROUTE_ORDERABLE_CONTRACT_STATUSES, ROUTE_SEQUENCE_SOURCE } from "./route.constants.js";
 
-const { Route, Contract, Client, ServiceAddress, User, sequelize } = db;
+const { Route, Contract, Client, ServiceAddress, User, Vehicle, sequelize } = db;
 
 /** Ordre de passage : séquence de l'admin, les contrats pas encore placés à la fin. */
 export const ROUTE_CONTRACT_ORDER = [["RouteSequence", "ASC NULLS LAST"], ["Reference", "ASC"]];
@@ -13,11 +14,12 @@ export const ROUTE_CONTRACT_ORDER = [["RouteSequence", "ASC NULLS LAST"], ["Refe
 const userSummary = ["Id", "Name", "Email"];
 const routeInclude = [
   { model: User, as: "Operator", attributes: userSummary },
-  { model: User, as: "SequenceUpdatedBy", attributes: userSummary }
+  { model: User, as: "SequenceUpdatedBy", attributes: userSummary },
+  { model: Vehicle, as: "DefaultVehicle", attributes: ["Id", "Name", "IsActive"] }
 ];
 
 /** Champs gérés par le serveur, jamais modifiables par PUT /route/:id. */
-const stripManagedFields = ({ Id, Operator, SequenceUpdatedBy, SequenceSource, SequenceUpdatedAt, SequenceUpdatedByUserId, ...fields }) => fields;
+const stripManagedFields = ({ Id, Operator, SequenceUpdatedBy, DefaultVehicle, SequenceSource, SequenceUpdatedAt, SequenceUpdatedByUserId, ...fields }) => fields;
 
 /** Point d'attache : null/"" = dépôt ; sinon emplacement validé. */
 const resolveBaseLocation = (fields, current = null) => {
@@ -147,6 +149,10 @@ export const createRoute = async (routeInfo) => {
   if (operatorUserId !== undefined) {
     creatable.OperatorUserId = operatorUserId;
   }
+  const defaultVehicleId = await resolveVehicleId(creatable.DefaultVehicleId, "Tracteur par défaut");
+  if (defaultVehicleId !== undefined) {
+    creatable.DefaultVehicleId = defaultVehicleId;
+  }
   return Route.create(creatable);
 };
 
@@ -160,6 +166,12 @@ export const updateRoute = async (id, routeInfo) => {
   const operatorUserId = await resolveOperatorUserId(updatable.OperatorUserId);
   if (operatorUserId !== undefined) {
     updatable.OperatorUserId = operatorUserId;
+  }
+  // Un véhicule désactivé depuis peut rester en place tant qu'on ne touche pas au champ
+  if ("DefaultVehicleId" in updatable && Number(updatable.DefaultVehicleId) !== route.DefaultVehicleId) {
+    updatable.DefaultVehicleId = await resolveVehicleId(updatable.DefaultVehicleId, "Tracteur par défaut");
+  } else {
+    delete updatable.DefaultVehicleId;
   }
   Object.assign(route, updatable);
   await route.save();

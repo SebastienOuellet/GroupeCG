@@ -23,7 +23,7 @@ const getCurrentRun = async (req, res, next) => {
 
 const startRouteRun = async (req, res, next) => {
   try {
-    const run = await routeRunService.startRouteRun(req.body.routeId, req.user);
+    const run = await routeRunService.startRouteRun(req.body.routeId, req.user, req.body.vehicleId);
     res.status(201).json(run);
   } catch (error) {
     next(error);

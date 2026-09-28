@@ -14,6 +14,8 @@ import { portalController } from "../components/portal/portal.controller.js";
 import { invoiceController } from "../components/invoice/invoice.controller.js";
 import { routeRunController } from "../components/routeRun/routeRun.controller.js";
 import { settingController } from "../components/setting/setting.controller.js";
+import { trackingController } from "../components/tracking/tracking.controller.js";
+import { vehicleController } from "../components/vehicle/vehicle.controller.js";
 
 /**
  * Agrège les routes de chaque composant et préfixe chacune par /api/<feature>.
@@ -37,9 +39,11 @@ export class Routes {
       ...serviceAddressController.routes.map(this.addAPIUrl("/service-address")),
       ...settingController.routes.map(this.addAPIUrl("/setting")),
       ...tenantController.routes.map(this.addAPIUrl("/tenant")),
+      ...trackingController.routes.map(this.addAPIUrl("/tracking")),
       ...templateController.routes.map(this.addAPIUrl("/template")),
       ...unsubscribeController.routes.map(this.addAPIUrl("/unsubscribe")),
       ...userController.routes.map(this.addAPIUrl("/user")),
+      ...vehicleController.routes.map(this.addAPIUrl("/vehicle")),
       ...webhookController.routes.map(this.addAPIUrl("/webhook"))
     ];
   }
