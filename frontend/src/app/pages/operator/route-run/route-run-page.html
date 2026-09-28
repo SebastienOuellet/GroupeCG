@@ -13,6 +13,19 @@
     @if (!run()) {
       <div class="start-card">
         <p>Aucune tournée en cours pour cette route.</p>
+        @if (vehicles().length > 0) {
+          <label class="vehicle-picker">
+            <span>Tracteur</span>
+            <select name="vehicle" [(ngModel)]="selectedVehicleId">
+              @for (vehicle of vehicles(); track vehicle.Id) {
+                <option [ngValue]="vehicle.Id" [disabled]="!!vehicle.InUseByRoute">
+                  {{ vehicle.Name }}{{ vehicle.InUseByRoute ? " — déjà sur " + vehicle.InUseByRoute : "" }}
+                </option>
+              }
+              <option [ngValue]="null">Aucun tracteur suivi (GPS du téléphone)</option>
+            </select>
+          </label>
+        }
         <button type="button" class="btn-primary btn-start" [disabled]="busy()" (click)="startRoute()">
           {{ busy() ? "Démarrage..." : "🚜 Démarrer la route" }}
         </button>
@@ -23,51 +36,98 @@
         <span>{{ doneCount }} / {{ totalCount }} arrêt(s) traité(s)</span>
       </div>
 
+      <app-gps-status-card
+        [run]="run()!"
+        [stale]="signalIsStale()"
+        [signalAgo]="signalAgo()"
+        [phoneFixAgo]="phoneFixAgo()"
+        (phoneGpsChange)="togglePhoneGps($event)"
+      />
+
       @if (totalCount === 0) {
         <p class="empty-state">Aucun contrat actif sur cette route.</p>
       } @else {
-        <div class="stops">
-          @for (stop of run()?.Stops; track stop.Id) {
-            <div
-              class="stop-card"
-              [id]="'stop-' + stop.Id"
-              [class.stop-card--done]="stop.Status === 'done'"
-              [class.stop-card--skipped]="stop.Status === 'skipped'"
-              [class.stop-card--next]="stop.Id === nextStopId()"
-            >
-              <span class="stop-card__number" [attr.aria-label]="'Arrêt ' + stop.Sequence + ' sur ' + totalCount">{{ stop.Sequence }}/{{ totalCount }}</span>
-              <div class="stop-card__info">
-                @if (stop.Id === nextStopId()) {
-                  <span class="stop-card__next-label">Prochain arrêt</span>
-                }
-                <div class="stop-card__title">
-                  <strong>{{ addressLabel(stop) }}</strong>
-                  <app-surface-badge [surface]="stop.Contract?.ServiceAddress?.DrivewaySurface" [size]="stop.Contract?.ServiceAddress?.DrivewaySize" />
-                </div>
-                <span>{{ clientLabel(stop) }}</span>
-                @if (stop.Contract?.ServiceAddress?.Notes; as notes) {
-                  <small class="stop-card__notes">{{ notes }}</small>
-                }
+        <div class="view-toggle" role="tablist" aria-label="Affichage de la tournée">
+          <button type="button" role="tab" class="view-toggle__btn" [class.view-toggle__btn--on]="view() === 'list'" [attr.aria-selected]="view() === 'list'" (click)="setView('list')">📋 Liste</button>
+          <button type="button" role="tab" class="view-toggle__btn" [class.view-toggle__btn--on]="view() === 'map'" [attr.aria-selected]="view() === 'map'" (click)="setView('map')">🗺️ Carte et trajet</button>
+        </div>
+
+        <div class="run-layout" [class.run-layout--map]="view() === 'map'">
+          <div class="run-layout__list stops">
+            @for (stop of run()?.Stops; track stop.Id) {
+              <ng-container *ngTemplateOutlet="stopCard; context: { $implicit: stop, inList: true }" />
+            }
+          </div>
+
+          <div class="run-layout__map">
+            <app-run-map
+              class="run-map-panel"
+              [stops]="mapStops()"
+              [endpoint]="endpoint()"
+              [nextStopId]="nextStopId()"
+              [selectedStopId]="selectedStopId()"
+              [tractor]="tractor()"
+              (stopClicked)="selectStop($event)"
+            />
+            @if (unmappedCount() > 0) {
+              <p class="map-hint">{{ unmappedCount() }} adresse(s) sans position : visibles dans la liste seulement.</p>
+            }
+            @if (focusedStop(); as stop) {
+              <div class="map-focus">
+                <ng-container *ngTemplateOutlet="stopCard; context: { $implicit: stop }" />
               </div>
-              @if (stop.Contract?.Notes; as instructions) {
-                <p class="stop-card__instructions">⚠ {{ instructions }}</p>
-              }
-              <div class="stop-card__actions">
-                @if (stop.Status === "pending" && navigationUrl(stop); as url) {
-                  <a class="btn-outline stop-card__navigate" [href]="url" target="_blank" rel="noopener">🧭 Naviguer</a>
-                }
-                @if (stop.Status === "pending") {
-                  <button type="button" class="btn-outline" (click)="setStopStatus(stop, 'skipped')">Passer</button>
-                  <button type="button" class="btn-primary" (click)="setStopStatus(stop, 'done')">Fait ✓</button>
-                } @else {
-                  <span class="stop-card__status">{{ stop.Status === "done" ? "Fait ✓" : "Passé" }}</span>
-                  <button type="button" class="btn-outline" (click)="setStopStatus(stop, 'pending')">Annuler</button>
-                }
-              </div>
-            </div>
-          }
+            } @else {
+              <p class="map-hint">Tous les arrêts sont traités.</p>
+            }
+          </div>
         </div>
       }
+
+      <ng-template #stopCard let-stop let-inList="inList">
+        <div
+          class="stop-card"
+          [id]="inList ? 'stop-' + stop.Id : null"
+          [class.stop-card--done]="stop.Status === 'done'"
+          [class.stop-card--skipped]="stop.Status === 'skipped'"
+          [class.stop-card--next]="stop.Id === nextStopId()"
+          [class.stop-card--here]="isHere(stop)"
+        >
+          <span class="stop-card__number" [attr.aria-label]="'Arrêt ' + stop.Sequence + ' sur ' + totalCount">{{ stop.Sequence }}/{{ totalCount }}</span>
+          <div class="stop-card__info">
+            @if (isHere(stop)) {
+              <span class="stop-card__here-label">📍 Sur place depuis {{ clock(stop.ArrivedAt) }}</span>
+            } @else if (stop.Id === nextStopId()) {
+              <span class="stop-card__next-label">Prochain arrêt</span>
+            }
+            <div class="stop-card__title">
+              <strong>{{ addressLabel(stop) }}</strong>
+              <app-surface-badge [surface]="stop.Contract?.ServiceAddress?.DrivewaySurface" [size]="stop.Contract?.ServiceAddress?.DrivewaySize" />
+            </div>
+            <span>{{ clientLabel(stop) }}</span>
+            @if (stop.Contract?.ServiceAddress?.Notes; as notes) {
+              <small class="stop-card__notes">{{ notes }}</small>
+            }
+          </div>
+          @if (stop.Contract?.Notes; as instructions) {
+            <p class="stop-card__instructions">⚠ {{ instructions }}</p>
+          }
+          <div class="stop-card__actions">
+            @if (stop.Status === "pending" && navigationUrl(stop); as url) {
+              <a class="btn-outline stop-card__navigate" [href]="url" target="_blank" rel="noopener">🧭 Naviguer</a>
+            }
+            @if (stop.Status === "pending") {
+              <button type="button" class="btn-outline" (click)="setStopStatus(stop, 'skipped')">Passer</button>
+              <button type="button" class="btn-primary" (click)="setStopStatus(stop, 'done')">Fait ✓</button>
+            } @else {
+              <span class="stop-card__status">
+                {{ stop.Status === "done" ? (stop.DoneSource === "auto_gps" ? "Fait (GPS) ✓" : "Fait ✓") : "Passé" }}
+                @if (stop.DoneAt) { <small>{{ clock(stop.DoneAt) }}</small> }
+              </span>
+              <button type="button" class="btn-outline" (click)="setStopStatus(stop, 'pending')">Annuler</button>
+            }
+          </div>
+        </div>
+      </ng-template>
 
       <button type="button" class="btn-primary btn-complete" [disabled]="busy()" (click)="completeRoute()">
         {{ busy() ? "..." : "Terminer la tournée" }}

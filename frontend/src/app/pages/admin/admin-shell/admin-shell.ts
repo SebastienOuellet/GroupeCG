@@ -4,7 +4,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { filter } from "rxjs";
 import { AuthStore } from "../../../core/auth/auth.store";
 
-type NavIcon = "users" | "contract" | "route" | "bell" | "template" | "invoice" | "settings";
+type NavIcon = "tracking" | "users" | "contract" | "route" | "bell" | "template" | "invoice" | "settings";
 
 interface NavItem {
   path: string;
@@ -31,6 +31,7 @@ export class AdminShell {
     { path: "/clients", label: "Clients", icon: "users" },
     { path: "/contrats", label: "Contrats", icon: "contract" },
     { path: "/routes", label: "Routes", icon: "route" },
+    { path: "/suivi", label: "Suivi en direct", icon: "tracking" },
     { path: "/notifications", label: "Notifications", icon: "bell" },
     { path: "/modeles", label: "Modèles", icon: "template" },
     { path: "/factures", label: "Factures", icon: "invoice" },

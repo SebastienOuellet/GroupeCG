@@ -41,3 +41,21 @@ export interface RouteOptimizationSettingsResponse {
   defaults: RouteOptimizationSettings;
   updatedAt: string | null;
 }
+
+/** Réglages du suivi GPS des tracteurs (clé Settings `tracking`). */
+export interface TrackingSettings {
+  positionRetentionDays: number;
+  liveTrailMinutes: number;
+  autoCompleteStops: boolean;
+  geofenceRadiusM: number;
+  exitMarginM: number;
+  minDwellSeconds: number;
+  lookaheadStops: number;
+  portalTrackingEnabled: boolean;
+}
+
+export interface TrackingSettingsResponse {
+  values: TrackingSettings;
+  defaults: TrackingSettings;
+  updatedAt: string | null;
+}

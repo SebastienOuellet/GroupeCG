@@ -14,8 +14,7 @@ const getMyRoutes = async (req, res, next) => {
 
 const getCurrentRun = async (req, res, next) => {
   try {
-    const { route, run } = await routeRunService.getCurrentRun(req.params.routeId, req.user);
-    res.status(200).json({ route, run });
+    res.status(200).json(await routeRunService.getCurrentRun(req.params.routeId, req.user));
   } catch (error) {
     next(error);
   }
@@ -23,7 +22,7 @@ const getCurrentRun = async (req, res, next) => {
 
 const startRouteRun = async (req, res, next) => {
   try {
-    const run = await routeRunService.startRouteRun(req.body.routeId, req.user);
+    const run = await routeRunService.startRouteRun(req.body.routeId, req.user, req.body.vehicleId);
     res.status(201).json(run);
   } catch (error) {
     next(error);

@@ -16,8 +16,9 @@ export class RouteRunService {
     return this.api.get<CurrentRunResponse>(`route-run/route/${routeId}/current`);
   }
 
-  start(routeId: number): Promise<RouteRun> {
-    return this.api.post<RouteRun>("route-run/start", { routeId });
+  /** `vehicleId` : tracteur choisi ; null = aucun (GPS du téléphone) ; absent = celui de la route. */
+  start(routeId: number, vehicleId?: number | null): Promise<RouteRun> {
+    return this.api.post<RouteRun>("route-run/start", vehicleId === undefined ? { routeId } : { routeId, vehicleId });
   }
 
   updateStop(stopId: number, status: RouteRunStopStatus): Promise<RouteRunStop> {

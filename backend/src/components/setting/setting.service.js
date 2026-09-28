@@ -7,6 +7,7 @@ import { buildContractPdf } from "../../documents/contractPdf.js";
 import { computeTotals } from "../invoice/invoice.money.js";
 import { keepLocationDateIfUnchanged, normalizeNamedLocation } from "../../shared/location.js";
 import { DEFAULT_ROUTE_OPTIMIZATION_SETTINGS, ROUTE_OPTIMIZATION_LIMITS } from "../route/route.constants.js";
+import { DEFAULT_TRACKING_SETTINGS, TRACKING_BOOLEAN_SETTINGS, TRACKING_LIMITS } from "../tracking/tracking.constants.js";
 
 const { Setting } = db;
 
@@ -201,4 +202,45 @@ export const updateRouteOptimizationSettings = async (input, userId = null) => {
   await row.save();
   logger.info(`Paramètres de l'optimiseur modifiés | par utilisateur #${userId ?? "?"} | ${JSON.stringify(values)}`);
   return getRouteOptimizationSettings();
+};
+
+/* ------------------------------------------------------------------ */
+/* Suivi des tracteurs (géolocalisation)                               */
+/* ------------------------------------------------------------------ */
+
+/** Défauts du code, surchargés clé par clé ; une clé ajoutée plus tard prend son défaut. */
+export const getTrackingSettings = async () => {
+  const row = await Setting.findOne({ where: { Key: SETTING_KEYS.TRACKING } });
+  const values = { ...DEFAULT_TRACKING_SETTINGS, ...pick(row?.Value, DEFAULT_TRACKING_SETTINGS) };
+  return { values, defaults: DEFAULT_TRACKING_SETTINGS, updatedAt: row?.updatedAt ?? null };
+};
+
+/** Mise à jour partielle : une clé absente garde sa valeur actuelle (écran qui ne la connaît pas encore). */
+export const updateTrackingSettings = async (input, userId = null) => {
+  const { values } = await getTrackingSettings();
+  for (const [key, { min, max }] of Object.entries(TRACKING_LIMITS)) {
+    if (input?.[key] === undefined) continue;
+    const number = Number(input?.[key]);
+    if (!Number.isInteger(number) || number < min || number > max) {
+      throw new BadRequestError(`Suivi « ${key} » : doit être un entier entre ${min} et ${max}.`);
+    }
+    values[key] = number;
+  }
+  for (const key of TRACKING_BOOLEAN_SETTINGS) {
+    if (input?.[key] === undefined) continue;
+    if (typeof input[key] !== "boolean") {
+      throw new BadRequestError(`Suivi « ${key} » : doit être vrai ou faux.`);
+    }
+    values[key] = input[key];
+  }
+  const [row] = await Setting.findOrCreate({
+    where: { Key: SETTING_KEYS.TRACKING },
+    defaults: { Value: values, UpdatedByUserId: userId }
+  });
+  row.Value = values;
+  row.UpdatedByUserId = userId;
+  row.changed("Value", true);
+  await row.save();
+  logger.info(`Paramètres du suivi modifiés | par utilisateur #${userId ?? "?"} | ${JSON.stringify(values)}`);
+  return getTrackingSettings();
 };

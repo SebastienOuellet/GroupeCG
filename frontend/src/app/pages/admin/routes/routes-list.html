@@ -44,6 +44,16 @@
           }
         </label>
         <label class="form-field">
+          <span>Tracteur par défaut</span>
+          <select name="DefaultVehicleId" [(ngModel)]="form.DefaultVehicleId">
+            <option [ngValue]="null">— Aucun —</option>
+            @for (vehicle of vehicles(); track vehicle.Id) {
+              <option [ngValue]="vehicle.Id">{{ vehicle.Name }}</option>
+            }
+          </select>
+          <small style="color: #7a8591">Proposé à l'opérateur au démarrage (Paramètres › Véhicules).</small>
+        </label>
+        <label class="form-field">
           <span>Ordre d'affichage</span>
           <input type="number" name="SortOrder" [(ngModel)]="form.SortOrder" />
         </label>
@@ -68,6 +78,7 @@
           <th>Nom</th>
           <th>Description</th>
           <th>Opérateur</th>
+          <th>Tracteur</th>
           <th>Ordre de passage</th>
           <th></th>
         </tr>
@@ -78,6 +89,7 @@
             <td data-label="Nom"><strong>{{ route.Name }}</strong></td>
             <td data-label="Description">{{ route.Description || "—" }}</td>
             <td data-label="Opérateur">{{ route.Operator?.Name || route.Operator?.Email || "—" }}</td>
+            <td data-label="Tracteur">{{ route.DefaultVehicle?.Name || "—" }}</td>
             <td data-label="Ordre de passage">
               @if (route.UnplacedCount) {
                 <span class="badge badge--draft" title="Contrats ajoutés depuis le dernier ordre : à placer ou réoptimiser">

@@ -1,0 +1,458 @@
+import db from "../../../models/index.js";
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../../errors/Errors.js";
+import { logger } from "../../config/logger.js";
+import { ROUTE_RUN_STATUS, ROUTE_RUN_STOP_STATUS, STOP_DONE_SOURCE } from "../routeRun/routeRun.constants.js";
+import { USER_ROLES } from "../user/user.constants.js";
+import { getTrackingSettings } from "../setting/setting.service.js";
+import { GEOFENCE_MAX_ACCURACY_M, PORTAL_RECENT_VISIT_HOURS, POSITION_RULES, POSITION_SOURCE, POSITION_SOURCES, STALE_POSITION_MS } from "./tracking.constants.js";
+import { advanceGeofence } from "../../tracking/geofence.js";
+
+const { RouteRun, RouteRunStop, Route, User, Vehicle, VehiclePosition, Contract, ServiceAddress, Sequelize, sequelize } = db;
+const { Op } = Sequelize;
+
+/* ------------------------------------------------------------------ */
+/* Validation                                                          */
+/* ------------------------------------------------------------------ */
+
+const inRange = (value, min, max) => value != null && Number.isFinite(value) && value >= min && value <= max;
+const optional = (value, min, max) => (inRange(value, min, max) ? value : null);
+const round = (value, decimals) => (value == null ? null : Math.round(value * 10 ** decimals) / 10 ** decimals);
+
+/**
+ * Position brute (osmandParser ou navigateur) → ligne prête à insérer, ou null si inutilisable.
+ * Sans heure d'appareil, on prend l'heure du serveur ; une heure trop dans le futur est rejetée.
+ */
+export const normalizePosition = (raw, now = new Date()) => {
+  const latitude = Number(raw?.latitude);
+  const longitude = Number(raw?.longitude);
+  if (!inRange(latitude, -90, 90) || !inRange(longitude, -180, 180)) return null;
+  // (0, 0) : GPS sans signal qui renvoie la valeur par défaut
+  if (Math.abs(latitude) < 0.001 && Math.abs(longitude) < 0.001) return null;
+
+  const recordedAt = raw.recordedAt instanceof Date ? raw.recordedAt : raw.recordedAt ? new Date(raw.recordedAt) : now;
+  if (Number.isNaN(recordedAt.getTime()) || recordedAt.getTime() > now.getTime() + POSITION_RULES.maxFutureSkewMs) return null;
+
+  return {
+    Latitude: round(latitude, 6),
+    Longitude: round(longitude, 6),
+    SpeedKmh: round(optional(numberOrNull(raw.speedKmh), 0, 300), 1),
+    Heading: round(optional(numberOrNull(raw.heading), 0, 360), 1),
+    AccuracyM: round(optional(numberOrNull(raw.accuracyM), 0, 100000), 1),
+    RecordedAt: recordedAt,
+    batteryPercent: optional(numberOrNull(raw.batteryPercent), 0, 100)
+  };
+};
+
+const numberOrNull = (value) => (value == null || value === "" ? null : Number(value));
+
+/* ------------------------------------------------------------------ */
+/* Réception                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Enregistre des positions pour une tournée en cours. Les positions antérieures au
+ * démarrage (hors quart de travail) et invalides sont jetées. Met à jour la dernière
+ * position du véhicule si ces positions sont plus récentes.
+ */
+const storePositions = async (run, vehicle, rawPositions, source) => {
+  if (!POSITION_SOURCES.includes(source)) {
+    throw new BadRequestError("Source de position inconnue.");
+  }
+  if (!Array.isArray(rawPositions) || rawPositions.length === 0) {
+    return { accepted: 0, rejected: 0 };
+  }
+  if (rawPositions.length > POSITION_RULES.maxPerRequest) {
+    throw new BadRequestError(`Trop de positions dans une requête (max ${POSITION_RULES.maxPerRequest}).`);
+  }
+
+  const now = new Date();
+  const earliest = new Date(run.StartedAt).getTime() - POSITION_RULES.maxBeforeRunStartMs;
+  const rows = rawPositions
+    .map((raw) => normalizePosition(raw, now))
+    .filter((row) => row && row.RecordedAt.getTime() >= earliest)
+    .sort((a, b) => a.RecordedAt - b.RecordedAt);
+
+  if (rows.length > 0) {
+    await VehiclePosition.bulkCreate(
+      rows.map(({ batteryPercent, ...row }) => ({ ...row, VehicleId: vehicle?.Id ?? null, RouteRunId: run.Id, Source: source }))
+    );
+    if (vehicle) {
+      await updateVehicleLastPosition(vehicle, rows[rows.length - 1]);
+    }
+  }
+  const result = { accepted: rows.length, rejected: rawPositions.length - rows.length };
+  if (rows.length > 0) {
+    try {
+      Object.assign(result, await processGeofence(run.Id, rows));
+    } catch (error) {
+      // Les positions sont enregistrées ; la détection reprendra au prochain envoi
+      logger.error(`Géorepérage en échec pour la tournée #${run.Id} : ${error.message}`);
+    }
+  }
+  return result;
+};
+
+/* ------------------------------------------------------------------ */
+/* Géorepérage : arrivées, départs, « Fait » automatique               */
+/* ------------------------------------------------------------------ */
+
+const toNumber = (value) => (value == null ? null : Number(value));
+
+/**
+ * Fait avancer la détection d'arrivée/départ avec ces positions. Verrou sur la ligne de la
+ * tournée : deux envois simultanés (appareil + téléphone) sont traités l'un après l'autre.
+ */
+export const processGeofence = async (runId, rows) => {
+  const { values: settings } = await getTrackingSettings();
+  const positions = rows
+    .filter((row) => row.AccuracyM == null || Number(row.AccuracyM) <= GEOFENCE_MAX_ACCURACY_M)
+    .map((row) => ({ latitude: Number(row.Latitude), longitude: Number(row.Longitude), recordedAt: row.RecordedAt }));
+  if (positions.length === 0) return { arrived: 0, autoDone: 0 };
+
+  return sequelize.transaction(async (transaction) => {
+    const run = await RouteRun.findByPk(runId, { attributes: ["Id", "Status", "StartedAt", "GeofenceState"], lock: transaction.LOCK.UPDATE, transaction });
+    if (!run || run.Status !== ROUTE_RUN_STATUS.IN_PROGRESS) return { arrived: 0, autoDone: 0 };
+
+    const stops = await RouteRunStop.findAll({
+      where: { RouteRunId: run.Id },
+      attributes: ["Id", "Sequence", "Status", "DoneAt", "DoneSource", "ArrivedAt", "DepartedAt", "ServiceSeconds", "TravelSeconds"],
+      include: [{ model: Contract, as: "Contract", attributes: ["Id"], include: [{ model: ServiceAddress, as: "ServiceAddress", attributes: ["Latitude", "Longitude"] }] }],
+      transaction
+    });
+
+    const { state, changed } = advanceGeofence({
+      state: run.GeofenceState,
+      runStartedAt: run.StartedAt,
+      settings,
+      positions,
+      stops: stops.map((stop) => ({
+        id: stop.Id,
+        sequence: stop.Sequence,
+        status: stop.Status,
+        latitude: toNumber(stop.Contract?.ServiceAddress?.Latitude),
+        longitude: toNumber(stop.Contract?.ServiceAddress?.Longitude),
+        arrivedAt: stop.ArrivedAt,
+        departedAt: stop.DepartedAt,
+        serviceSeconds: stop.ServiceSeconds,
+        travelSeconds: stop.TravelSeconds,
+        doneAt: stop.DoneAt,
+        doneSource: stop.DoneSource
+      }))
+    });
+
+    let autoDone = 0;
+    for (const stop of changed) {
+      const original = stops.find((row) => row.Id === stop.id);
+      if (original.Status !== stop.status) autoDone += 1;
+      await RouteRunStop.update(
+        {
+          Status: stop.status,
+          DoneAt: stop.doneAt,
+          DoneSource: stop.doneSource,
+          ArrivedAt: stop.arrivedAt,
+          DepartedAt: stop.departedAt,
+          ServiceSeconds: stop.serviceSeconds,
+          TravelSeconds: stop.travelSeconds
+        },
+        { where: { Id: stop.id }, transaction }
+      );
+    }
+    run.GeofenceState = state;
+    run.changed("GeofenceState", true);
+    await run.save({ transaction });
+
+    if (autoDone > 0) {
+      logger.info(`Géorepérage | tournée #${run.Id} | ${autoDone} arrêt(s) fait(s) automatiquement`);
+    }
+    return { arrived: changed.filter((stop) => stop.arrivedAt && !stop.departedAt).length, autoDone };
+  });
+};
+
+const updateVehicleLastPosition = async (vehicle, latest) => {
+  const current = vehicle.LastPositionAt ? new Date(vehicle.LastPositionAt).getTime() : 0;
+  // Un tampon vidé en retard ne doit pas faire reculer la dernière position connue
+  if (latest.RecordedAt.getTime() <= current) return;
+  await Vehicle.update(
+    {
+      LastPositionAt: latest.RecordedAt,
+      LastLatitude: latest.Latitude,
+      LastLongitude: latest.Longitude,
+      LastSpeedKmh: latest.SpeedKmh,
+      LastHeading: latest.Heading,
+      ...(latest.batteryPercent != null ? { LastBatteryPercent: Math.round(latest.batteryPercent) } : {})
+    },
+    { where: { Id: vehicle.Id } }
+  );
+};
+
+/**
+ * Positions d'un appareil (OsmAnd). Sans tournée en cours pour ce véhicule, tout est
+ * jeté : aucun suivi hors quart de travail (Loi 25). Réponse 200 quand même, pour que
+ * l'appareil ne s'acharne pas à renvoyer.
+ */
+export const ingestDevicePositions = async (vehicle, rawPositions) => {
+  const run = await RouteRun.findOne({
+    where: { VehicleId: vehicle.Id, Status: ROUTE_RUN_STATUS.IN_PROGRESS },
+    attributes: ["Id", "StartedAt"]
+  });
+  if (!run) {
+    return { accepted: 0, rejected: rawPositions.length, reason: "no_active_run" };
+  }
+  return storePositions(run, vehicle, rawPositions, POSITION_SOURCE.OSMAND);
+};
+
+/** Positions du GPS du téléphone, envoyées par la page de tournée de l'opérateur. */
+export const ingestBrowserPositions = async (runId, user, rawPositions) => {
+  const run = await RouteRun.findByPk(runId, {
+    attributes: ["Id", "StartedAt", "Status", "VehicleId"],
+    include: [
+      { model: Route, as: "Route", attributes: ["Id", "OperatorUserId"] },
+      { model: Vehicle, as: "Vehicle" }
+    ]
+  });
+  if (!run) {
+    throw new NotFoundError("Tournée introuvable.");
+  }
+  if (user.Role === USER_ROLES.OPERATOR && run.Route?.OperatorUserId !== user.Id) {
+    throw new ForbiddenError("Cette route ne vous est pas assignée.");
+  }
+  if (run.Status !== ROUTE_RUN_STATUS.IN_PROGRESS) {
+    throw new ConflictError("Cette tournée n'est pas en cours.");
+  }
+  return storePositions(run, run.Vehicle, rawPositions, POSITION_SOURCE.BROWSER);
+};
+
+/* ------------------------------------------------------------------ */
+/* Carte en direct                                                     */
+/* ------------------------------------------------------------------ */
+
+const positionJson = (p) => ({
+  latitude: Number(p.Latitude),
+  longitude: Number(p.Longitude),
+  speedKmh: p.SpeedKmh == null ? null : Number(p.SpeedKmh),
+  heading: p.Heading == null ? null : Number(p.Heading),
+  accuracyM: p.AccuracyM == null ? null : Number(p.AccuracyM),
+  source: p.Source,
+  recordedAt: p.RecordedAt
+});
+
+/** Dernière position de chaque tournée (une seule requête, DISTINCT ON). */
+export const getLastPositions = async (runIds) => {
+  if (runIds.length === 0) return new Map();
+  const rows = await sequelize.query(
+    `SELECT DISTINCT ON ("RouteRunId") "RouteRunId", "Latitude", "Longitude", "SpeedKmh", "Heading", "AccuracyM", "Source", "RecordedAt"
+       FROM "VehiclePositions" WHERE "RouteRunId" IN (:runIds)
+      ORDER BY "RouteRunId", "RecordedAt" DESC, "Id" DESC`,
+    { replacements: { runIds }, type: Sequelize.QueryTypes.SELECT }
+  );
+  return new Map(rows.map((row) => [row.RouteRunId, positionJson(row)]));
+};
+
+/** Signal de suivi pour la vue opérateur : dernière position reçue et si elle est récente. */
+export const describeSignal = (lastPosition, now = Date.now()) => {
+  if (!lastPosition) return { lastPositionAt: null, isStale: true };
+  const at = new Date(lastPosition.recordedAt);
+  return { lastPositionAt: at, source: lastPosition.source, isStale: now - at.getTime() > STALE_POSITION_MS };
+};
+
+const addressJson = (address) =>
+  address
+    ? {
+        label: `${address.CivicNumber} ${address.Street}`,
+        city: address.City,
+        latitude: address.Latitude == null ? null : Number(address.Latitude),
+        longitude: address.Longitude == null ? null : Number(address.Longitude)
+      }
+    : null;
+
+/**
+ * Tournées en cours pour la carte admin : route, opérateur, véhicule, arrêts (état +
+ * position), dernière position et traînée des `liveTrailMinutes` dernières minutes.
+ */
+export const getLiveRuns = async () => {
+  const { values: settings } = await getTrackingSettings();
+  const runs = await RouteRun.findAll({
+    where: { Status: ROUTE_RUN_STATUS.IN_PROGRESS },
+    include: [
+      { model: Route, as: "Route", attributes: ["Id", "Name"] },
+      { model: User, as: "Operator", attributes: ["Id", "Name", "Email"] },
+      { model: Vehicle, as: "Vehicle", attributes: ["Id", "Name", "LastBatteryPercent"] },
+      {
+        model: RouteRunStop,
+        as: "Stops",
+        attributes: ["Id", "Sequence", "Status", "DoneAt", "DoneSource", "ArrivedAt", "ContractId"],
+        include: [
+          {
+            model: Contract,
+            as: "Contract",
+            attributes: ["Id", "Reference"],
+            include: [{ model: ServiceAddress, as: "ServiceAddress", attributes: ["CivicNumber", "Street", "City", "Latitude", "Longitude"] }]
+          }
+        ]
+      }
+    ],
+    order: [["StartedAt", "ASC"], [{ model: RouteRunStop, as: "Stops" }, "Sequence", "ASC"]]
+  });
+
+  const runIds = runs.map((run) => run.Id);
+  const since = new Date(Date.now() - settings.liveTrailMinutes * 60 * 1000);
+  const [lastPositions, trailRows] = await Promise.all([
+    getLastPositions(runIds),
+    runIds.length === 0
+      ? []
+      : VehiclePosition.findAll({
+          where: { RouteRunId: { [Op.in]: runIds }, RecordedAt: { [Op.gte]: since } },
+          attributes: ["RouteRunId", "Latitude", "Longitude", "RecordedAt"],
+          order: [["RecordedAt", "ASC"], ["Id", "ASC"]]
+        })
+  ]);
+
+  const trails = new Map();
+  for (const row of trailRows) {
+    if (!trails.has(row.RouteRunId)) trails.set(row.RouteRunId, []);
+    trails.get(row.RouteRunId).push([Number(row.Latitude), Number(row.Longitude)]);
+  }
+
+  return {
+    generatedAt: new Date(),
+    staleAfterMs: STALE_POSITION_MS,
+    runs: runs.map((run) => {
+      const stops = run.Stops ?? [];
+      const lastPosition = lastPositions.get(run.Id) ?? null;
+      return {
+        id: run.Id,
+        startedAt: run.StartedAt,
+        route: run.Route ? { id: run.Route.Id, name: run.Route.Name } : null,
+        operator: run.Operator ? { id: run.Operator.Id, name: run.Operator.Name || run.Operator.Email } : null,
+        vehicle: run.Vehicle ? { id: run.Vehicle.Id, name: run.Vehicle.Name, batteryPercent: run.Vehicle.LastBatteryPercent } : null,
+        doneCount: stops.filter((stop) => stop.Status !== ROUTE_RUN_STOP_STATUS.PENDING).length,
+        totalCount: stops.length,
+        lastPosition,
+        signal: describeSignal(lastPosition),
+        trail: trails.get(run.Id) ?? [],
+        stops: stops.map((stop) => ({
+          id: stop.Id,
+          sequence: stop.Sequence,
+          status: stop.Status,
+          doneAt: stop.DoneAt,
+          doneSource: stop.DoneSource,
+          arrivedAt: stop.ArrivedAt,
+          reference: stop.Contract?.Reference ?? null,
+          address: addressJson(stop.Contract?.ServiceAddress)
+        }))
+      };
+    })
+  };
+};
+
+/** Tracé complet d'une tournée (tant que ses positions ne sont pas purgées). */
+export const getRunTrace = async (runId) => {
+  const run = await RouteRun.findByPk(runId, {
+    attributes: ["Id", "RouteId", "Status", "StartedAt", "CompletedAt"],
+    include: [
+      { model: Route, as: "Route", attributes: ["Id", "Name"] },
+      { model: Vehicle, as: "Vehicle", attributes: ["Id", "Name"] }
+    ]
+  });
+  if (!run) {
+    throw new NotFoundError("Tournée introuvable.");
+  }
+  const positions = await VehiclePosition.findAll({
+    where: { RouteRunId: run.Id },
+    order: [["RecordedAt", "ASC"], ["Id", "ASC"]]
+  });
+  return { run, positions: positions.map(positionJson) };
+};
+
+/* ------------------------------------------------------------------ */
+/* Portail client                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Suivi pour le client connecté au portail (son contrat seulement) : la tournée en cours
+ * qui passe chez lui, ou sa dernière visite des `PORTAL_RECENT_VISIT_HOURS` dernières heures.
+ *
+ * Ne renvoie jamais rien sur les autres clients : ni leurs adresses ni l'ordre de la route,
+ * seulement combien d'arrêts restent avant le sien et la position du tracteur. Pas de nom
+ * d'opérateur ni de tracteur. La position n'est donnée que tant que son entrée reste à faire.
+ */
+export const getPortalTracking = async (contractId) => {
+  const { values: settings } = await getTrackingSettings();
+  if (!settings.portalTrackingEnabled) {
+    return { enabled: false, visit: null };
+  }
+
+  const since = new Date(Date.now() - PORTAL_RECENT_VISIT_HOURS * 60 * 60 * 1000);
+  const stop = await RouteRunStop.findOne({
+    where: { ContractId: contractId },
+    attributes: ["Id", "RouteRunId", "Sequence", "Status", "DoneAt", "DoneSource", "ArrivedAt", "DepartedAt"],
+    include: [
+      {
+        model: RouteRun,
+        as: "RouteRun",
+        attributes: ["Id", "Status", "StartedAt", "CompletedAt"],
+        required: true,
+        where: {
+          [Op.or]: [
+            { Status: ROUTE_RUN_STATUS.IN_PROGRESS },
+            { Status: ROUTE_RUN_STATUS.COMPLETED, CompletedAt: { [Op.gte]: since } }
+          ]
+        }
+      },
+      { model: Contract, as: "Contract", attributes: ["Id"], include: [{ model: ServiceAddress, as: "ServiceAddress", attributes: ["Latitude", "Longitude"] }] }
+    ],
+    // Tournée en cours d'abord, sinon la plus récente
+    order: [[sequelize.literal(`CASE WHEN "RouteRun"."Status" = '${ROUTE_RUN_STATUS.IN_PROGRESS}' THEN 0 ELSE 1 END`), "ASC"], [{ model: RouteRun, as: "RouteRun" }, "StartedAt", "DESC"]]
+  });
+  if (!stop) {
+    return { enabled: true, visit: null };
+  }
+
+  const run = stop.RouteRun;
+  const inProgress = run.Status === ROUTE_RUN_STATUS.IN_PROGRESS;
+  const pending = stop.Status === ROUTE_RUN_STOP_STATUS.PENDING;
+  const stopsBefore = inProgress && pending
+    ? await RouteRunStop.count({ where: { RouteRunId: run.Id, Status: ROUTE_RUN_STOP_STATUS.PENDING, Sequence: { [Op.lt]: stop.Sequence } } })
+    : 0;
+
+  let tractor = null;
+  if (inProgress && pending) {
+    const last = (await getLastPositions([run.Id])).get(run.Id);
+    if (last) {
+      tractor = { latitude: last.latitude, longitude: last.longitude, heading: last.heading, recordedAt: last.recordedAt, isStale: describeSignal(last).isStale };
+    }
+  }
+
+  const address = stop.Contract?.ServiceAddress;
+  return {
+    enabled: true,
+    visit: {
+      inProgress,
+      startedAt: run.StartedAt,
+      status: stop.Status,
+      doneAt: stop.DoneAt,
+      /** Détecté par le GPS du tracteur (plutôt que coché à la main). */
+      confirmedByGps: stop.DoneSource === STOP_DONE_SOURCE.AUTO_GPS,
+      /** Tracteur dans l'entrée en ce moment. */
+      tractorHere: pending && !!stop.ArrivedAt && !stop.DepartedAt,
+      stopsBefore,
+      tractor,
+      destination: address?.Latitude == null ? null : { latitude: Number(address.Latitude), longitude: Number(address.Longitude) }
+    }
+  };
+};
+
+/* ------------------------------------------------------------------ */
+/* Purge                                                               */
+/* ------------------------------------------------------------------ */
+
+/** Supprime les positions brutes plus vieilles que `positionRetentionDays`. */
+export const purgeOldPositions = async () => {
+  const { values } = await getTrackingSettings();
+  const cutoff = new Date(Date.now() - values.positionRetentionDays * 24 * 60 * 60 * 1000);
+  const count = await VehiclePosition.destroy({ where: { RecordedAt: { [Op.lt]: cutoff } } });
+  if (count > 0) {
+    logger.info(`Purge des positions : ${count} position(s) de plus de ${values.positionRetentionDays} jour(s) supprimée(s).`);
+  }
+  return { count, cutoff };
+};

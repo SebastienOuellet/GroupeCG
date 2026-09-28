@@ -70,6 +70,10 @@ export const routes: Routes = [
         canDeactivate: [(page: { confirmLeave(): boolean }) => page.confirmLeave()]
       },
       {
+        path: "suivi",
+        loadComponent: () => import("./pages/admin/tracking/live-tracking").then((m) => m.LiveTracking)
+      },
+      {
         path: "modeles",
         loadComponent: () => import("./pages/admin/templates/templates-list").then((m) => m.TemplatesList)
       },
@@ -104,6 +108,10 @@ export const routes: Routes = [
       {
         path: "parametres/routes",
         loadComponent: () => import("./pages/admin/settings/routes-settings").then((m) => m.RoutesSettings)
+      },
+      {
+        path: "parametres/vehicules",
+        loadComponent: () => import("./pages/admin/settings/vehicles-settings").then((m) => m.VehiclesSettings)
       }
     ]
   },

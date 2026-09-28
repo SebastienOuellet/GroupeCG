@@ -1,6 +1,14 @@
 import { inject, Injectable } from "@angular/core";
 import { ApiService } from "../api.service";
-import { ContractTerms, ContractTermsResponse, RouteDepotResponse, RouteOptimizationSettings, RouteOptimizationSettingsResponse } from "../models/setting.model";
+import {
+  ContractTerms,
+  ContractTermsResponse,
+  RouteDepotResponse,
+  RouteOptimizationSettings,
+  RouteOptimizationSettingsResponse,
+  TrackingSettings,
+  TrackingSettingsResponse
+} from "../models/setting.model";
 import { NamedLocation } from "../models/location.model";
 
 @Injectable({
@@ -36,5 +44,13 @@ export class SettingService {
 
   updateRouteOptimizationSettings(settings: RouteOptimizationSettings): Promise<RouteOptimizationSettingsResponse> {
     return this.api.put<RouteOptimizationSettingsResponse>("setting/route-optimization", settings);
+  }
+
+  getTrackingSettings(): Promise<TrackingSettingsResponse> {
+    return this.api.get<TrackingSettingsResponse>("setting/tracking");
+  }
+
+  updateTrackingSettings(settings: TrackingSettings): Promise<TrackingSettingsResponse> {
+    return this.api.put<TrackingSettingsResponse>("setting/tracking", settings);
   }
 }

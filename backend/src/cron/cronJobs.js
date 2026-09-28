@@ -8,6 +8,7 @@ import { INVOICE_STATUS } from "../components/invoice/invoice.constants.js";
 import { BATCH_TYPES, TARGET_TYPES } from "../components/notification/notification.constants.js";
 import { TEMPLATE_TYPES } from "../components/template/template.model.js";
 import { notificationWorker } from "../notifications/NotificationWorker.js";
+import { purgeOldPositions } from "../components/tracking/tracking.service.js";
 
 const configService = new ConfigService();
 const { Contract, Invoice, NotificationTemplate, Sequelize } = db;
@@ -103,6 +104,9 @@ export const runSeasonCompletion = async () => {
 /** Filet de sécurité supplémentaire au recovery fait au démarrage du worker. */
 export const runQueueRecovery = () => notificationWorker.recoverStuck();
 
+/** Positions GPS brutes plus vieilles que la rétention configurée (Loi 25). */
+export const runPositionPurge = () => purgeOldPositions();
+
 const guarded = (name, fn) => async () => {
   try {
     await fn();
@@ -116,5 +120,6 @@ export const registerCronJobs = () => {
   cron.schedule("0 6 * * *", guarded("overdue-invoices", runOverdueInvoices), { timezone: CRON_TIMEZONE });
   cron.schedule("5 6 * * *", guarded("season-completion", runSeasonCompletion), { timezone: CRON_TIMEZONE });
   cron.schedule("0 * * * *", guarded("queue-recovery", runQueueRecovery), { timezone: CRON_TIMEZONE });
-  logger.info("Tâches planifiées enregistrées (rappels, factures, saison, file).");
+  cron.schedule("15 4 * * *", guarded("position-purge", runPositionPurge), { timezone: CRON_TIMEZONE });
+  logger.info("Tâches planifiées enregistrées (rappels, factures, saison, file, purge des positions).");
 };

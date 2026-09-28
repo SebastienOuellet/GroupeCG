@@ -195,3 +195,123 @@
     text-decoration: none;
   }
 }
+
+.vehicle-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0 0 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+
+  select {
+    min-height: 44px;
+    font-size: 1rem;
+  }
+}
+
+/* Liste / carte : bascule sur téléphone, côte à côte sur grand écran */
+.view-toggle {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  padding: 0.25rem;
+  border-radius: 10px;
+  background: #e3e6ea;
+
+  &__btn {
+    flex: 1;
+    min-height: 44px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #5a646e;
+    font-weight: 700;
+    font-size: 0.9375rem;
+  }
+
+  &__btn--on {
+    background: #fff;
+    color: var(--color-primary);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  }
+}
+
+.run-layout__map {
+  display: none;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.run-layout--map {
+  .run-layout__list {
+    display: none;
+  }
+
+  .run-layout__map {
+    display: flex;
+  }
+}
+
+.run-map-panel {
+  height: calc(100vh - 360px);
+  min-height: 300px;
+}
+
+.map-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #5a646e;
+  text-align: center;
+}
+
+.map-focus .stop-card {
+  margin: 0;
+}
+
+.stop-card--here {
+  border: 2px solid #f5b400;
+}
+
+.stop-card__here-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #8a5a00;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+@media (min-width: 1000px) {
+  .op-content {
+    max-width: 1200px;
+  }
+
+  .view-toggle {
+    display: none;
+  }
+
+  /* Les deux panneaux, quelle que soit la bascule (cachée) */
+  .run-layout {
+    display: grid;
+    grid-template-columns: minmax(360px, 480px) 1fr;
+    gap: 1.25rem;
+    align-items: start;
+
+    .run-layout__list {
+      display: flex;
+    }
+
+    .run-layout__map {
+      display: flex;
+      position: sticky;
+      top: 1rem;
+    }
+  }
+
+  .run-map-panel {
+    height: calc(100vh - 280px);
+  }
+}

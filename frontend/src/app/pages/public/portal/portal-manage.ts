@@ -9,9 +9,10 @@ import { NoticeChannel, Suppression, suppressionNote } from "../../../core/model
 import { ContactForm } from "../../../shared/contact-form/contact-form";
 import { NoticeStatus } from "../../../shared/notice-status/notice-status";
 
+import { PortalTrackingCard } from "./portal-tracking-card";
 @Component({
   selector: "app-portal-manage",
-  imports: [FormsModule, ContactForm, NoticeStatus],
+  imports: [FormsModule, ContactForm, NoticeStatus, PortalTrackingCard],
   templateUrl: "./portal-manage.html",
   styleUrl: "./portal-manage.scss"
 })

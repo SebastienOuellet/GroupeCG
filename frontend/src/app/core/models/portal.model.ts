@@ -30,3 +30,21 @@ export interface PortalMe {
   };
   tenants: Tenant[];
 }
+
+/** Suivi du déneigement pour le client connecté (son adresse seulement). */
+export interface PortalTracking {
+  /** Suivi désactivé par l'entreprise (Paramètres › Véhicules). */
+  enabled: boolean;
+  /** Tournée en cours qui passe chez lui, ou sa dernière visite des 12 dernières heures ; null = rien à montrer. */
+  visit: {
+    inProgress: boolean;
+    startedAt: string;
+    status: "pending" | "done" | "skipped";
+    doneAt: string | null;
+    confirmedByGps: boolean;
+    tractorHere: boolean;
+    stopsBefore: number;
+    tractor: { latitude: number; longitude: number; heading: number | null; recordedAt: string; isStale: boolean } | null;
+    destination: { latitude: number; longitude: number } | null;
+  } | null;
+}

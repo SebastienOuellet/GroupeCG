@@ -2,20 +2,25 @@ import db from "../../../models/index.js";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../../errors/Errors.js";
 import { logger } from "../../config/logger.js";
 import * as notificationService from "../notification/notification.service.js";
-import { ROUTE_RUN_STATUS, ROUTE_RUN_STOP_STATUS, ROUTE_RUN_STOP_STATUSES } from "./routeRun.constants.js";
+import { ROUTE_RUN_STATUS, ROUTE_RUN_STOP_STATUS, ROUTE_RUN_STOP_STATUSES, STOP_DONE_SOURCE } from "./routeRun.constants.js";
+import { getRouteDepot } from "../setting/setting.service.js";
 import { CONTRACT_STATUS } from "../contract/contract.constants.js";
 import { BATCH_TYPES, TARGET_TYPES } from "../notification/notification.constants.js";
 import { TEMPLATE_TYPES } from "../template/template.model.js";
 import { USER_ROLES } from "../user/user.constants.js";
 import { ROUTE_CONTRACT_ORDER } from "../route/route.service.js";
+import { resolveVehicleId } from "../vehicle/vehicle.service.js";
+import { describeSignal, getLastPositions } from "../tracking/tracking.service.js";
 
-const { Route, RouteRun, RouteRunStop, Contract, Client, ServiceAddress, NotificationTemplate, sequelize } = db;
+const { Route, RouteRun, RouteRunStop, Contract, Client, ServiceAddress, NotificationTemplate, Vehicle, sequelize } = db;
 
 const DEFAULT_ROUTE_START_SMS =
   "Bonjour {{prenom}}, notre équipe s'en vient déneiger à {{adresse}} sous peu. Merci de déplacer votre véhicule si possible.";
 const DEFAULT_ROUTE_START_SUBJECT = "Déneigement en cours";
 const DEFAULT_ROUTE_START_EMAIL =
   "Bonjour {{prenom}},\n\nNotre équipe s'en vient déneiger à {{adresse}} sous peu. Merci de déplacer votre véhicule si possible.\n\nMerci de votre collaboration.";
+
+const vehicleInclude = { model: Vehicle, as: "Vehicle", attributes: ["Id", "Name"] };
 
 const stopInclude = [
   {
@@ -47,7 +52,10 @@ const assertRouteAccess = (route, user) => {
 export const getMyRoutes = async (user) => {
   return Route.findAll({
     where: { OperatorUserId: user.Id, IsActive: true },
-    include: [{ model: RouteRun, as: "Runs", where: { Status: ROUTE_RUN_STATUS.IN_PROGRESS }, required: false }],
+    include: [
+      { model: RouteRun, as: "Runs", where: { Status: ROUTE_RUN_STATUS.IN_PROGRESS }, required: false },
+      { model: Vehicle, as: "DefaultVehicle", attributes: ["Id", "Name", "IsActive"] }
+    ],
     order: [["SortOrder", "ASC"], ["Name", "ASC"]]
   });
 };
@@ -62,11 +70,62 @@ export const getCurrentRun = async (routeId, user) => {
 
   const run = await RouteRun.findOne({
     where: { RouteId: routeId, Status: ROUTE_RUN_STATUS.IN_PROGRESS },
-    include: [{ model: Route, as: "Route" }, ...stopInclude],
+    include: [{ model: Route, as: "Route" }, vehicleInclude, ...stopInclude],
     order: stopOrder
   });
 
-  return { route, run };
+  return { route, run: run ? await withSignal(run) : null, endpoint: await resolveRunEndpoint(route) };
+};
+
+/**
+ * Départ et retour de la carte opérateur : point d'attache de la route, sinon dépôt.
+ * null si rien n'est configuré (la carte trace alors seulement les arrêts).
+ */
+const resolveRunEndpoint = async (route) => {
+  const location = route.BaseLocation ?? (await getRouteDepot()).value;
+  if (!location) return null;
+  return { label: location.label, latitude: Number(location.latitude), longitude: Number(location.longitude) };
+};
+
+/**
+ * Ajoute l'état du suivi GPS (dernière position reçue, muet ou non) pour l'indicateur de
+ * l'opérateur, et la dernière position elle-même pour sa carte.
+ */
+const withSignal = async (run) => {
+  const lastPositions = await getLastPositions([run.Id]);
+  const last = lastPositions.get(run.Id) ?? null;
+  const json = run.toJSON();
+  delete json.GeofenceState;
+  return {
+    ...json,
+    Signal: describeSignal(last),
+    LastPosition: last ? { latitude: last.latitude, longitude: last.longitude, heading: last.heading, recordedAt: last.recordedAt } : null
+  };
+};
+
+/**
+ * Tracteur de la tournée : celui choisi par l'opérateur, sinon celui de la route.
+ * `vehicleId: null` explicite = aucun tracteur suivi (GPS du téléphone seulement).
+ * Un tracteur déjà en tournée ailleurs est refusé : ses positions iraient à la mauvaise route.
+ */
+const resolveRunVehicleId = async (route, vehicleId) => {
+  let id;
+  if (vehicleId === undefined) {
+    const fallback = route.DefaultVehicleId ? await Vehicle.findByPk(route.DefaultVehicleId, { attributes: ["Id", "IsActive"] }) : null;
+    id = fallback?.IsActive ? fallback.Id : null;
+  } else {
+    id = await resolveVehicleId(vehicleId, "Tracteur");
+  }
+  if (id) {
+    const busy = await RouteRun.findOne({
+      where: { VehicleId: id, Status: ROUTE_RUN_STATUS.IN_PROGRESS },
+      include: [{ model: Route, as: "Route", attributes: ["Name"] }, vehicleInclude]
+    });
+    if (busy) {
+      throw new ConflictError(`${busy.Vehicle?.Name ?? "Ce tracteur"} est déjà en tournée sur la route ${busy.Route?.Name ?? ""}.`);
+    }
+  }
+  return id ?? null;
 };
 
 /**
@@ -74,7 +133,7 @@ export const getCurrentRun = async (routeId, user) => {
  * route, puis met en file une notification "on s'en vient" pour ces
  * contrats. Refuse si une tournée est déjà en cours sur cette route.
  */
-export const startRouteRun = async (routeId, user) => {
+export const startRouteRun = async (routeId, user, vehicleId = undefined) => {
   if (!routeId) {
     throw new BadRequestError("routeId est requis.");
   }
@@ -89,6 +148,7 @@ export const startRouteRun = async (routeId, user) => {
   if (existing) {
     throw new ConflictError("Une tournée est déjà en cours pour cette route.");
   }
+  const runVehicleId = await resolveRunVehicleId(route, vehicleId);
 
   // Ordre de passage de l'admin, figé dans les arrêts : le réordonner ensuite ne change pas cette tournée
   const activeContracts = await Contract.findAll({
@@ -102,7 +162,7 @@ export const startRouteRun = async (routeId, user) => {
 
   const runId = await sequelize.transaction(async (transaction) => {
     const run = await RouteRun.create(
-      { RouteId: routeId, OperatorUserId: user.Id, Status: ROUTE_RUN_STATUS.IN_PROGRESS },
+      { RouteId: routeId, OperatorUserId: user.Id, VehicleId: runVehicleId, Status: ROUTE_RUN_STATUS.IN_PROGRESS },
       { transaction }
     );
 
@@ -143,7 +203,8 @@ export const startRouteRun = async (routeId, user) => {
 
   logger.info(`Tournée démarrée | route "${route.Name}" par utilisateur #${user.Id} | ${activeContracts.length} arrêt(s)`);
 
-  return RouteRun.findByPk(runId, { include: [{ model: Route, as: "Route" }, ...stopInclude], order: stopOrder });
+  const run = await RouteRun.findByPk(runId, { include: [{ model: Route, as: "Route" }, vehicleInclude, ...stopInclude], order: stopOrder });
+  return withSignal(run);
 };
 
 export const updateStop = async (stopId, status, user) => {
@@ -160,7 +221,14 @@ export const updateStop = async (stopId, status, user) => {
   assertRouteAccess(stop.RouteRun.Route, user);
 
   stop.Status = status;
-  stop.DoneAt = status === ROUTE_RUN_STOP_STATUS.PENDING ? null : new Date();
+  if (status === ROUTE_RUN_STOP_STATUS.PENDING) {
+    // Annuler efface aussi ce que le GPS avait détecté : une fausse détection ne doit pas fausser les durées
+    Object.assign(stop, { DoneAt: null, DoneSource: null, ArrivedAt: null, DepartedAt: null, ServiceSeconds: null, TravelSeconds: null });
+  } else {
+    // Coché à la main : les heures d'arrivée/départ déjà détectées restent (utiles pour calibrer)
+    stop.DoneAt = new Date();
+    stop.DoneSource = STOP_DONE_SOURCE.MANUAL;
+  }
   await stop.save();
   return stop;
 };

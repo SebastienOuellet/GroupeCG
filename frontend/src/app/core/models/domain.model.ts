@@ -54,6 +54,9 @@ export interface RouteModel {
   SortOrder: number;
   IsActive: boolean;
   Operator?: { Id: number; Name: string | null; Email: string } | null;
+  /** Tracteur proposé au démarrage d'une tournée (Paramètres › Véhicules). */
+  DefaultVehicleId?: number | null;
+  DefaultVehicle?: { Id: number; Name: string; IsActive: boolean } | null;
   /** Point d'attache du véhicule (départ et retour). null = dépôt (Paramètres › Routes). */
   BaseLocation?: NamedLocation | null;
   SequenceSource?: RouteSequenceSource | null;

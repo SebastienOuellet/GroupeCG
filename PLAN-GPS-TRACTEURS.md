@@ -1,6 +1,6 @@
 # Plan — Géolocalisation des tracteurs (suivi en direct, « Fait » automatique)
 
-> Statut (2026-09-28) : **plan approuvé dans ses grandes lignes, rien d'implémenté.** Rédigé à partir du code sur `main` (commit `776503a`, après R0-R3 de `PLAN-ROUTES-GOOGLE.md`).
+> Statut (2026-09-28) : **V1 complète (G1, G2, G3) + carte du trajet opérateur**, branche `GPS` fusionnée dans `main`. À faire plus tard : journal de passage (avant les premières plaintes), G4 (après quelques tempêtes), SMS « 15 min avant » (après G4), G5 (ESP32), G6 (FieldOps). Ordre global des travaux : voir « Reste à faire » dans `RESUME-REPRISE.md`. Rédigé à partir du code sur `main` (commit `776503a`, après R0-R3 de `PLAN-ROUTES-GOOGLE.md`).
 >
 > Pour reprendre : lire `RESUME-REPRISE.md` (état du code, démarrage, travail sur deux postes), puis ce plan. Commencer par la phase G1.
 
@@ -153,14 +153,44 @@ Migrations `Vehicles`, `VehiclePositions`, `Routes.DefaultVehicleId`, `RouteRuns
 → *Livrable : l'admin voit les tracteurs en direct pendant une tempête.*
 → *Vérif : script qui rejoue une trace GPS (fichier de coordonnées le long de la route de test Boisjoli, `seed-test-route.js`) en OsmAnd → positions en base, `Vehicles.Last*` à jour ; positions reçues hors tournée → jetées ; mauvais jeton → 401 ; Traccar Client réel sur un téléphone en voiture ; « Naviguer » ouvert → le suivi continue ; purge → seules les positions récentes restent.*
 
+**✅ Livrée le 2026-09-28 sur la branche `GPS`** (`d9ecc8e` backend + frontend suivant). Écarts et ajouts :
+- Migration `20260928300001-gps-vehicles-positions.cjs` (suffixe 3000xx : troisième poste). `Vehicles` a aussi `DeviceTokenCreatedAt` et `LastBatteryPercent`.
+- Jeton de l'appareil accepté **dans le champ « Identifiant de l'appareil » de Traccar Client** (`id` / `device_id`) avec l'URL `…/api/tracking/osmand` : le jeton reste hors de l'URL en JSON. `…/osmand/<jeton>` fonctionne aussi. Formats reçus : paramètres GET/POST (vitesse en nœuds) et JSON Traccar 9 (m/s, `location` simple ou tableau).
+- GPS du navigateur : `POST /api/tracking/runs/:id/positions` (plutôt que sous `/route-run`), envoi groupé aux 15 s, Wake Lock, reprise après rechargement de la page. Coupé en quittant la page.
+- Limite de débit par appareil (120/min, clé = hash du jeton), pas par IP.
+- Un tracteur déjà en tournée sur une autre route est refusé au démarrage (409) ; désactiver un tracteur en tournée aussi.
+- Réglages `Settings.tracking` (`positionRetentionDays`, `liveTrailMinutes`) : API faite (`GET/PUT /setting/tracking`), écran prévu avec G2.
+- `/suivi` : actualisation aux 10 s (en pause onglet caché), marqueurs mis à jour sur place ; au-delà de 400 arrêts, seuls ceux de la tournée sélectionnée s'affichent.
+- Pas de code QR pour le jeton (copier-coller suffit pour l'instant).
+- Vérifié : 56 tests backend (Postgres jetable) + 21 tests navigateur headless (frontend compilé, auth Firebase simulée, géolocalisation simulée). **La carte Google n'a pas pu être testée ici** (pas d'accès à Google depuis le poste de test) : à valider dans ton navigateur, ainsi que Traccar Client sur un vrai téléphone (URL publique requise).
+
 ### Phase G2 — Arrivées, départs et « Fait » automatique (~2-3 soirées)
 Champs `RouteRunStops` (`ArrivedAt`, `DepartedAt`, `ServiceSeconds`, `TravelSeconds`, `DoneSource`) ; `geofence.js` ; Settings `tracking` ; affichage opérateur « Fait (auto) » + annuler.
 → *Livrable : l'opérateur n'a plus besoin de cocher ; chaque arrêt a ses vraies durées.*
 → *Vérif (trace simulée) : arrêt de 2 min → `done` + `auto_gps` + durées ; passage sans arrêt de 20 s → rien ; deux entrées voisines à 15 m → la bonne est cochée ; arrêt sauté → reste `pending` ; décocher un auto → champs GPS effacés ; positions en retard mélangées → même résultat ; `autoCompleteStops=false` → durées enregistrées, pas de « Fait ». Puis un vrai test en voiture sur 3-4 adresses.*
 
+**✅ Livrée le 2026-09-28 sur la branche `GPS`** (`925049b` backend + frontend suivant). Écarts et ajouts :
+- Migration `20260928300002-gps-stop-arrivals.cjs` : champs `RouteRunStops` du plan + `RouteRuns.GeofenceState` (JSONB) : l'état de la détection est mémorisé entre deux envois, chaque position ne sert qu'une fois.
+- `src/tracking/geofence.js` : fonction pure (testable sans base). 2 positions consécutives pour confirmer une arrivée ou un départ (filtre les sauts GPS) ; positions à plus de 100 m de précision ignorées pour la détection ; verrou de ligne sur la tournée (appareil + téléphone en même temps).
+- Une position plus vieille que la dernière traitée ne compte pas pour la détection (elle reste sur la carte). Un tampon envoyé d'un bloc est trié avant traitement.
+- `TravelSeconds` part du dernier vrai départ : un simple passage devant une adresse ne le remet pas à zéro.
+- Réglages (Paramètres › Véhicules) : Fait auto on/off, rayon, marge de sortie, durée minimale, arrêts surveillés, conservation, traînée. `PUT /setting/tracking` est partiel.
+- Vue opérateur : actualisation aux 15 s, « 📍 Sur place depuis 5 h 42 », « Fait (GPS) ✓ » avec l'heure, Annuler efface les données GPS.
+- **Ajout demandé par Sébastien : carte du trajet dans la vue opérateur.** Bascule 📋 Liste / 🗺️ Carte et trajet sur téléphone (choix mémorisé), les deux côte à côte sur grand écran. Arrêts numérotés par état, départ/retour, tracteur (position du téléphone s'il envoie, sinon la dernière reçue). Trajet routier Google par tronçon (fait en gris, prochain tronçon en évidence), calculé une seule fois par ouverture de la page (≈ 1 requête Routes API par 25 arrêts) ; lignes droites si Routes API est indisponible. Sous la carte, fiche de l'arrêt touché (ou du prochain) avec Naviguer / Passer / Fait.
+- Vérifié : 31 tests de géorepérage (dont entrées voisines, passage, tampon désordonné, envois simultanés) + 56 tests G1 relancés + 17 tests navigateur headless. **Carte Google et trajet routier non testables ici** : à valider dans ton navigateur et sur téléphone.
+
 ### Phase G3 — Suivi dans le portail client (~2 soirées)
 `GET /api/portal/tracking` ; carte et « X arrêts avant le vôtre » dans `/portail/gestion` ; réglage `portalTrackingEnabled`.
 → *Vérif : contrat hors tournée en cours → rien d'affiché ; tournée en cours → nombre d'arrêts juste ; jeton expiré → 401 ; aucune donnée d'un autre client dans la réponse (seulement la position du tracteur et l'état de SON arrêt).*
+
+**✅ Livrée le 2026-09-28 sur la branche `GPS`.** Écarts et ajouts :
+- `GET /api/portal/tracking` (jeton portail, limite dédiée de 120 requêtes / 15 min par IP) : la tournée en cours qui passe chez le client, sinon sa dernière visite des **12 dernières heures** (`PORTAL_RECENT_VISIT_HOURS`) pour « Votre entrée a été déneigée à 5 h 42 ».
+- Réponse volontairement minimale : état de SON arrêt, nombre d'arrêts avant le sien, position du tracteur **seulement tant que son entrée reste à faire**, son adresse. Ni ordre de la route, ni autres adresses, ni nom d'opérateur, de tracteur ou de route.
+- États affichés : « Déneigement en cours dans votre secteur — il reste X arrêts », « Vous êtes le prochain arrêt », « Le déneigeur est chez vous », « Votre entrée a été déneigée à … (passage confirmé par le GPS du tracteur) », « Passage reporté ».
+- Carte (tracteur + maison) seulement pendant l'attente. La page s'actualise aux 30 s, y compris avant le départ de la tournée (une page ouverte d'avance voit le tracteur arriver).
+- Réglage « Montrer le tracteur aux clients » (`portalTrackingEnabled`) dans Paramètres › Véhicules.
+- Limite connue : le jeton du portail expire après 30 min ; un client qui suit plus longtemps doit se reconnecter.
+- Vérifié : 20 tests API (confidentialité incluse) + 8 tests navigateur headless ; G1 (56) et G2 (31) relancés sans régression. Carte Google non testable ici.
 
 ### Phase G4 — Statistiques et calibration des durées (~2 soirées, après quelques tempêtes)
 Page Paramètres › Routes › « Durées réelles » : médiane de `ServiceSeconds` par revêtement × taille d'entrée, nombre d'échantillons, écart avec les réglages actuels, bouton « Appliquer les durées suggérées » ; par route, trajet réel vs estimé par l'optimiseur.
@@ -175,6 +205,13 @@ Compte développeur CNH (courriel de domaine d'entreprise), EULA accepté pour l
 → *Avant d'écrire du code : mesurer la fréquence réelle des positions de l'API. Si c'est aux minutes, le géorepérage ne sera pas fiable pour ce tracteur : garder la carte, désactiver le « Fait » auto pour ce véhicule, ou lui ajouter un téléphone/ESP32.*
 
 **= V1 complète : G1 + G2 + G3, ~7-8 soirées.** G4 dès qu'il y a assez de données.
+
+### Plus tard — Journal de passage (preuve de service)
+Demandé par Sébastien le 2026-09-28, reporté après G3. Aujourd'hui, **Annuler efface** ArrivedAt/DepartedAt/DoneSource, et les positions brutes sont purgées après 30 jours : un « Fait (GPS) » peut donc disparaître sans trace. À faire :
+- table append-only `RouteRunStopEvents` (comme `ConsentLogs`) : arrivée, départ, fait auto, coché/passé/annulé à la main (par qui), avec heure, source et la position GPS du moment (précision incluse) ; rien n'est jamais effacé, l'annulation devient une ligne ;
+- historique de passage dans la fiche du contrat (une ligne par tempête : arrivée, départ, durée, source, opérateur, tracteur ; trace sur la carte tant qu'elle existe) ;
+- conservation réglable (12 mois par défaut : saison + contestation, Loi 25) ; plus tard, preuve de passage en PDF.
+- Limite à garder en tête : prouve la présence du tracteur, pas la qualité du déneigement ; un pin mal placé affaiblit la preuve.
 
 ### Plus tard (hors V1) — Préavis « 15 min avant » par SMS
 Prérequis : G4 appliqué, durées réelles sur plusieurs tempêtes.

@@ -11,3 +11,10 @@ export const ROUTE_RUN_STOP_STATUS = {
 };
 
 export const ROUTE_RUN_STOP_STATUSES = Object.values(ROUTE_RUN_STOP_STATUS);
+
+/** Qui a marqué l'arrêt fait ou passé. */
+export const STOP_DONE_SOURCE = {
+  MANUAL: "manual",
+  /** Géorepérage : le tracteur est reparti de l'entrée après y être resté assez longtemps. */
+  AUTO_GPS: "auto_gps"
+};
