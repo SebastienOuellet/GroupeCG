@@ -314,6 +314,12 @@ export class RouteDetail implements OnInit {
       const placedIds = new Set(placed.map((c) => c.Id));
       const rest = this.savedOrder().filter((c) => !placedIds.has(c.Id));
       const next = [...placed, ...rest];
+      // L'optimiseur confirme l'ordre enregistré : rien à appliquer, on le dit simplement
+      if (!proposal.skipped.length && next.map((c) => c.Id).join(",") === this.savedOrder().map((c) => c.Id).join(",")) {
+        this.resetOrder();
+        this.info.set(`${proposal.provider === "google" ? "Google" : "L'optimiseur"} confirme l'ordre enregistré : aucun ordre plus court trouvé.`);
+        return;
+      }
       this.order.set(next);
       this.proposal.set(proposal);
       this.proposalKey = next.map((c) => c.Id).join(",");
