@@ -13,6 +13,19 @@
     @if (!run()) {
       <div class="start-card">
         <p>Aucune tournée en cours pour cette route.</p>
+        @if (vehicles().length > 0) {
+          <label class="vehicle-picker">
+            <span>Tracteur</span>
+            <select name="vehicle" [(ngModel)]="selectedVehicleId">
+              @for (vehicle of vehicles(); track vehicle.Id) {
+                <option [ngValue]="vehicle.Id" [disabled]="!!vehicle.InUseByRoute">
+                  {{ vehicle.Name }}{{ vehicle.InUseByRoute ? " — déjà sur " + vehicle.InUseByRoute : "" }}
+                </option>
+              }
+              <option [ngValue]="null">Aucun tracteur suivi (GPS du téléphone)</option>
+            </select>
+          </label>
+        }
         <button type="button" class="btn-primary btn-start" [disabled]="busy()" (click)="startRoute()">
           {{ busy() ? "Démarrage..." : "🚜 Démarrer la route" }}
         </button>
@@ -21,6 +34,39 @@
     } @else {
       <div class="progress">
         <span>{{ doneCount }} / {{ totalCount }} arrêt(s) traité(s)</span>
+      </div>
+
+      <div class="gps-card" [class.gps-card--ok]="!signalIsStale()">
+        <div class="gps-card__status">
+          @if (!signalIsStale()) {
+            📡 <strong>Suivi actif</strong>
+          } @else if (run()?.Signal?.lastPositionAt) {
+            ⚠️ <strong>Aucun signal GPS récent</strong>
+          } @else {
+            ⚠️ <strong>Aucune position reçue</strong>
+          }
+          <span class="gps-card__detail">
+            {{ run()?.Vehicle ? "🚜 " + run()?.Vehicle?.Name : "Sans tracteur suivi" }}
+            @if (run()?.Signal?.lastPositionAt) { · dernier signal {{ signalAgo() }} }
+          </span>
+        </div>
+        @if (phoneGps.supported) {
+          <label class="gps-card__toggle">
+            <input type="checkbox" [ngModel]="phoneGps.active()" (ngModelChange)="togglePhoneGps($event)" name="phoneGps" />
+            Envoyer la position de ce téléphone
+          </label>
+          @if (phoneGps.active()) {
+            <small class="gps-card__hint">
+              GPS du téléphone : {{ phoneGps.lastFixAt() ? "position " + phoneFixAgo() : "recherche du signal..." }}.
+              Garder cette page ouverte et l'écran allumé : le suivi s'arrête si vous ouvrez « Naviguer » ou verrouillez le téléphone.
+            </small>
+          } @else if (!run()?.Vehicle) {
+            <small class="gps-card__hint">Ce tracteur n'a pas d'appareil de suivi : cochez pour que le bureau vous voie sur la carte.</small>
+          }
+          @if (phoneGps.error(); as gpsError) {
+            <small class="gps-card__error">{{ gpsError }}</small>
+          }
+        }
       </div>
 
       @if (totalCount === 0) {

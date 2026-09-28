@@ -1,0 +1,135 @@
+<app-settings-tabs />
+
+<div class="page-header">
+  <h1>Véhicules</h1>
+  <button type="button" class="btn-primary" (click)="openForm()">+ Nouveau tracteur</button>
+</div>
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+
+@if (tokenNotice(); as n) {
+  <div class="card" id="token-notice" style="border-left: 4px solid #1e7a3c">
+    <h2 style="margin-top: 0">Jeton de « {{ n.vehicleName }} »</h2>
+    <p class="form-hint" style="margin-top: 0">Le jeton ne sera plus affiché après fermeture. S'il est perdu, générez-en un nouveau.</p>
+
+    <h3 class="form-subtitle">Dans Traccar Client (téléphone du tracteur)</h3>
+    <table class="data-table data-table--kv" style="font-size: 0.9375rem">
+      <tr>
+        <th>Identifiant de l'appareil</th>
+        <td>
+          <code style="word-break: break-all">{{ n.token }}</code>
+          <button type="button" class="btn-link" style="margin-left: 0.5rem" (click)="copy(n.token, 'token')">{{ copied() === "token" ? "Copié ✓" : "Copier" }}</button>
+        </td>
+      </tr>
+      <tr>
+        <th>URL du serveur</th>
+        <td>
+          <code style="word-break: break-all">{{ serverUrl }}</code>
+          <button type="button" class="btn-link" style="margin-left: 0.5rem" (click)="copy(serverUrl, 'url')">{{ copied() === "url" ? "Copié ✓" : "Copier" }}</button>
+        </td>
+      </tr>
+      <tr><th>Fréquence</th><td>10 secondes</td></tr>
+      <tr><th>Précision</th><td>Élevée</td></tr>
+    </table>
+    @if (serverUrlIsLocal) {
+      <div class="warning-banner" style="margin-top: 0.75rem">
+        Cette adresse n'est joignable que depuis ce poste. Pour un téléphone dans un tracteur, il faut l'adresse publique du serveur (production, ou un tunnel comme ngrok pour tester).
+      </div>
+    }
+    <p class="form-hint">
+      Les positions ne sont enregistrées que pendant une tournée en cours de ce tracteur : l'appareil peut rester allumé en permanence,
+      rien n'est gardé hors quart de travail. ESP32 : même URL, jeton dans le paramètre <code>id</code>.
+    </p>
+    <button type="button" class="btn-outline" (click)="tokenNotice.set(null)">Fermer</button>
+  </div>
+}
+
+@if (showForm()) {
+  <div class="card">
+    <h2>{{ form.Id ? "Modifier le tracteur" : "Nouveau tracteur" }}</h2>
+    <form (ngSubmit)="save()">
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Nom</span>
+          <input name="Name" [(ngModel)]="form.Name" required maxlength="100" placeholder="Ex. Tracteur 1, Case" />
+        </label>
+        <label class="form-field form-field--wide">
+          <span>Notes</span>
+          <input name="Notes" [(ngModel)]="form.Notes" placeholder="Ex. téléphone Android, forfait prépayé renouvelé le 15" />
+        </label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" [disabled]="saving()">{{ form.Id ? "Enregistrer" : "Créer et générer le jeton" }}</button>
+        <button type="button" class="btn-outline" (click)="showForm.set(false)">Annuler</button>
+      </div>
+    </form>
+  </div>
+}
+
+<div class="card">
+  @if (loading()) {
+    <p class="empty-state">Chargement...</p>
+  } @else if (vehicles().length === 0) {
+    <p class="empty-state">
+      Aucun tracteur. Créez-en un, installez Traccar Client sur un téléphone qui reste dans la cabine,
+      puis choisissez le tracteur par défaut de chaque route.
+    </p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Routes (par défaut)</th>
+          <th>En tournée</th>
+          <th>Dernier signal</th>
+          <th>Jeton</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (vehicle of vehicles(); track vehicle.Id) {
+          <tr [style.opacity]="vehicle.IsActive ? 1 : 0.55">
+            <td data-label="Nom">
+              <strong>{{ vehicle.Name }}</strong>
+              @if (!vehicle.IsActive) { <span class="badge badge--inactive">Désactivé</span> }
+              @if (vehicle.Notes) { <br /><small class="form-hint">{{ vehicle.Notes }}</small> }
+            </td>
+            <td data-label="Routes">{{ routeNames(vehicle) }}</td>
+            <td data-label="En tournée">
+              @if (vehicle.CurrentRun; as run) {
+                <span class="badge badge--active">{{ run.Route?.Name }}</span>
+              } @else {
+                —
+              }
+            </td>
+            <td data-label="Dernier signal">
+              {{ timeAgo(vehicle.LastPositionAt) }}
+              @if (vehicle.LastBatteryPercent !== null) { <small class="form-hint"> · 🔋 {{ vehicle.LastBatteryPercent }} %</small> }
+            </td>
+            <td data-label="Jeton">
+              @if (vehicle.HasToken) {
+                <small>créé le {{ vehicle.DeviceTokenCreatedAt?.slice(0, 10) }}</small>
+              } @else {
+                <span class="badge badge--overdue">Aucun</span>
+              }
+            </td>
+            <td class="cell-actions">
+              @if (vehicle.IsActive) {
+                <button type="button" class="btn-outline" (click)="generateToken(vehicle)">{{ vehicle.HasToken ? "Nouveau jeton" : "Générer le jeton" }}</button>
+                <button type="button" class="btn-outline" (click)="openForm(vehicle)">Modifier</button>
+                <button type="button" class="btn-outline" (click)="setActive(vehicle, false)">Désactiver</button>
+              } @else {
+                <button type="button" class="btn-outline" (click)="setActive(vehicle, true)">Réactiver</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+  <button type="button" class="btn-link" style="margin-top: 0.75rem" (click)="toggleInactive()">
+    {{ showInactive() ? "Masquer les tracteurs désactivés" : "Afficher les tracteurs désactivés" }}
+  </button>
+</div>

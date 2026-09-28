@@ -195,3 +195,73 @@
     text-decoration: none;
   }
 }
+
+.vehicle-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0 0 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+
+  select {
+    min-height: 44px;
+    font-size: 1rem;
+  }
+}
+
+/* Suivi GPS : vert quand le serveur reçoit des positions, orange sinon */
+.gps-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border-left: 4px solid #a35200;
+  background: #fff8ef;
+  font-size: 0.875rem;
+  color: var(--color-secondary);
+
+  &--ok {
+    border-left-color: #1e7a3c;
+    background: #eef8f1;
+  }
+
+  &__status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.5rem;
+  }
+
+  &__detail {
+    color: #5a646e;
+    font-size: 0.8125rem;
+  }
+
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    font-weight: 600;
+
+    input {
+      width: 22px;
+      height: 22px;
+    }
+  }
+
+  &__hint {
+    color: #5a646e;
+    line-height: 1.4;
+  }
+
+  &__error {
+    color: #a02020;
+    font-weight: 600;
+  }
+}

@@ -11,7 +11,7 @@ https://github.com/SebastienOuellet/GroupeCG (branche `main`)
 | `RESUME-REPRISE.md` | Ce fichier : état actuel, démarrage, reste à faire, règles de travail |
 | `PLAN-ORIGINAL.md` | Plan initial (phases 1-5), **entièrement implémenté** — référence du modèle de données et des décisions |
 | `PLAN-ROUTES-GOOGLE.md` | Chantier en cours : optimisation des routes avec Google Route Optimization API — **R1 (ordre des arrêts) livrée**, R0/R2+ à faire |
-| `PLAN-GPS-TRACTEURS.md` | Prochain chantier : géolocalisation des tracteurs (carte en direct admin et portail, « Fait » automatique, collecte des durées réelles) — **planifié, rien d'implémenté** |
+| `PLAN-GPS-TRACTEURS.md` | Chantier en cours sur la branche **`GPS`** : géolocalisation des tracteurs — **G1 (réception des positions, carte `/suivi`) livrée**, G2+ à faire |
 
 Ces fichiers sont aussi copiés dans les docs du projet claude.ai « GroupeCG ». **Le repo fait foi** : en cas d'écart, c'est la version sur `main` qui est la bonne.
 
@@ -89,7 +89,10 @@ Migrations : `npm run migrate` dans `backend/` (la DB DigitalOcean est partagée
 - Plus tard si besoin : heures limites (`ServiceDeadline` → `timeWindows`) pour commerces/garderies.
 
 ### Géolocalisation des tracteurs (voir `PLAN-GPS-TRACTEURS.md`)
-- Plan rédigé le 28 septembre, à commencer par G1 (réception des positions OsmAnd/Traccar Client + page `/suivi`).
+- **Branche `GPS`** (pas encore dans `main`). G1 livrée : véhicules et jetons (Paramètres › Véhicules), réception OsmAnd (Traccar Client / ESP32), GPS du téléphone en repli, page `/suivi`, choix du tracteur au démarrage, purge nocturne des positions.
+- ⚠️ Migration `20260928300001-gps-vehicles-positions` à exécuter sur la DB DigitalOcean avant de tester la branche (`npm run migrate`). Sur `main` sans la branche, cette migration n'existe pas : ne pas l'exécuter depuis `main`.
+- À valider dans le navigateur : la carte Google de `/suivi` (non testable depuis le poste de Claude), Traccar Client sur un téléphone (URL publique du serveur requise, ou tunnel ngrok).
+- Suite : G2 (« Fait » automatique par zone autour de l'adresse + collecte des durées réelles).
 - V1 = G1 + G2 (« Fait » automatique) + G3 (suivi dans le portail). Pas de SMS automatique d'arrivée avant d'avoir calibré les durées (G4).
 
 ### Autres

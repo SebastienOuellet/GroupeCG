@@ -1,0 +1,92 @@
+<div class="page-header">
+  <h1>Suivi en direct</h1>
+  <div class="live-header__status">
+    @if (lastRefresh(); as at) {
+      <span class="live-dot" aria-hidden="true"></span> Actualisé {{ timeAgo(at.toISOString()) }}
+    }
+  </div>
+</div>
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+
+@if (!loaded()) {
+  <p class="empty-state">Chargement...</p>
+} @else {
+  @if (runs().length === 0) {
+  <div class="card">
+    <p class="empty-state">
+      Aucune tournée en cours. Les tracteurs apparaissent ici dès qu'un opérateur démarre sa route
+      et que son appareil envoie une position.
+    </p>
+    <p class="form-hint" style="text-align: center">
+      Tracteurs et jetons d'appareil : <a routerLink="/parametres/vehicules">Paramètres › Véhicules</a>
+    </p>
+  </div>
+  }
+  @if (staleCount() > 0) {
+    <div class="warning-banner">
+      {{ staleCount() }} tournée{{ staleCount() > 1 ? "s" : "" }} sans signal GPS récent (appareil éteint, zone sans réseau ou app fermée).
+    </div>
+  }
+
+  <!-- Toujours dans le DOM une fois chargé : la carte Google y reste attachée entre deux actualisations -->
+  <div class="live-layout" [hidden]="runs().length === 0">
+    <aside class="live-runs" aria-label="Tournées en cours">
+      @for (run of runs(); track run.id) {
+        <button
+          type="button"
+          class="live-run"
+          [class.live-run--selected]="run.id === selectedRunId()"
+          [class.live-run--stale]="run.signal.isStale"
+          [style.--run-color]="colorOf(run)"
+          [attr.aria-pressed]="run.id === selectedRunId()"
+          (click)="select(run)"
+        >
+          <span class="live-run__title">
+            <span class="live-run__swatch" aria-hidden="true"></span>
+            <strong>{{ run.route?.name ?? "Route" }}</strong>
+          </span>
+          <span class="live-run__meta">
+            {{ run.vehicle ? "🚜 " + run.vehicle.name : "📱 Téléphone" }} · {{ run.operator?.name ?? "—" }}
+          </span>
+          <span class="live-run__progress" role="progressbar" [attr.aria-valuenow]="run.doneCount" aria-valuemin="0" [attr.aria-valuemax]="run.totalCount">
+            <span class="live-run__bar" [style.width.%]="progressPercent(run)"></span>
+          </span>
+          <span class="live-run__meta">
+            {{ run.doneCount }}/{{ run.totalCount }} arrêts
+            @if (nextStop(run); as next) { · prochain : {{ next.sequence }}. {{ next.address?.label }} }
+          </span>
+          <span class="live-run__signal" [class.live-run__signal--stale]="run.signal.isStale">
+            @if (run.signal.lastPositionAt) {
+              {{ run.signal.isStale ? "⚠️ Dernier signal" : "📡 Signal" }} {{ timeAgo(run.signal.lastPositionAt) }}
+              @if (run.lastPosition?.speedKmh; as speed) { · {{ speed | number: "1.0-0" }} km/h }
+              @if (run.vehicle?.batteryPercent; as battery) { · 🔋 {{ battery }} % }
+            } @else {
+              ⚠️ Aucune position reçue depuis le départ ({{ timeAgo(run.startedAt) }})
+            }
+          </span>
+        </button>
+      }
+      <p class="form-hint">Cliquer une tournée pour la centrer et n'afficher que ses arrêts.</p>
+    </aside>
+
+    <section class="live-map-wrap">
+      @if (mapsEnabled) {
+        <div class="live-map" #mapContainer></div>
+        @if (mapError()) {
+          <p class="live-map__error">Carte indisponible : {{ mapError() }}</p>
+        }
+        <div class="live-legend" aria-hidden="true">
+          <span><span class="stop-dot stop-dot--pending">1</span> à faire</span>
+          <span><span class="stop-dot stop-dot--pending stop-dot--next">2</span> prochain</span>
+          <span><span class="stop-dot stop-dot--done">3</span> fait</span>
+          <span><span class="stop-dot stop-dot--skipped">4</span> passé</span>
+        </div>
+      } @else {
+        <p class="empty-state">Carte indisponible : clé Google Maps non configurée.</p>
+      }
+    </section>
+  </div>
+}

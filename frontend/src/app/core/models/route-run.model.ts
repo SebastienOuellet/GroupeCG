@@ -1,4 +1,5 @@
 import { Contract, RouteModel } from "./domain.model";
+import { TrackingSignal } from "./tracking.model";
 
 export type RouteRunStatus = "in_progress" | "completed" | "cancelled";
 export type RouteRunStopStatus = "pending" | "done" | "skipped";
@@ -23,6 +24,11 @@ export interface RouteRun {
   StartedAt: string;
   CompletedAt: string | null;
   NotificationBatchId: number | null;
+  /** Tracteur de la tournée (null = GPS du téléphone seulement). */
+  VehicleId: number | null;
+  Vehicle?: { Id: number; Name: string } | null;
+  /** État du suivi GPS (tournée en cours seulement). */
+  Signal?: TrackingSignal;
   Route?: RouteModel;
   Stops?: RouteRunStop[];
 }

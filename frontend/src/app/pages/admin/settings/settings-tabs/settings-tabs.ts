@@ -10,6 +10,7 @@ import { RouterLink, RouterLinkActive } from "@angular/router";
       <a routerLink="/parametres" routerLinkActive="settings-tabs__tab--active" [routerLinkActiveOptions]="{ exact: true }" class="settings-tabs__tab">Utilisateurs</a>
       <a routerLink="/parametres/contrat" routerLinkActive="settings-tabs__tab--active" class="settings-tabs__tab">Contrat</a>
       <a routerLink="/parametres/routes" routerLinkActive="settings-tabs__tab--active" class="settings-tabs__tab">Routes</a>
+      <a routerLink="/parametres/vehicules" routerLinkActive="settings-tabs__tab--active" class="settings-tabs__tab">Véhicules</a>
     </nav>
   `,
   styles: `

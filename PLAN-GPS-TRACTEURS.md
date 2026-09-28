@@ -1,6 +1,6 @@
 # Plan — Géolocalisation des tracteurs (suivi en direct, « Fait » automatique)
 
-> Statut (2026-09-28) : **plan approuvé dans ses grandes lignes, rien d'implémenté.** Rédigé à partir du code sur `main` (commit `776503a`, après R0-R3 de `PLAN-ROUTES-GOOGLE.md`).
+> Statut (2026-09-28) : **G1 livrée sur la branche `GPS`** (pas encore fusionnée dans `main`) ; G2 à G6 à faire. Rédigé à partir du code sur `main` (commit `776503a`, après R0-R3 de `PLAN-ROUTES-GOOGLE.md`).
 >
 > Pour reprendre : lire `RESUME-REPRISE.md` (état du code, démarrage, travail sur deux postes), puis ce plan. Commencer par la phase G1.
 
@@ -152,6 +152,17 @@ Calcul **côté serveur, à la réception de chaque position** d'une tournée en
 Migrations `Vehicles`, `VehiclePositions`, `Routes.DefaultVehicleId`, `RouteRuns.VehicleId` ; composants `vehicle` et `tracking` (OsmAnd + navigateur + `live`) ; choix du tracteur au démarrage ; Paramètres › Véhicules ; page `/suivi` ; cron de purge.
 → *Livrable : l'admin voit les tracteurs en direct pendant une tempête.*
 → *Vérif : script qui rejoue une trace GPS (fichier de coordonnées le long de la route de test Boisjoli, `seed-test-route.js`) en OsmAnd → positions en base, `Vehicles.Last*` à jour ; positions reçues hors tournée → jetées ; mauvais jeton → 401 ; Traccar Client réel sur un téléphone en voiture ; « Naviguer » ouvert → le suivi continue ; purge → seules les positions récentes restent.*
+
+**✅ Livrée le 2026-09-28 sur la branche `GPS`** (`d9ecc8e` backend + frontend suivant). Écarts et ajouts :
+- Migration `20260928300001-gps-vehicles-positions.cjs` (suffixe 3000xx : troisième poste). `Vehicles` a aussi `DeviceTokenCreatedAt` et `LastBatteryPercent`.
+- Jeton de l'appareil accepté **dans le champ « Identifiant de l'appareil » de Traccar Client** (`id` / `device_id`) avec l'URL `…/api/tracking/osmand` : le jeton reste hors de l'URL en JSON. `…/osmand/<jeton>` fonctionne aussi. Formats reçus : paramètres GET/POST (vitesse en nœuds) et JSON Traccar 9 (m/s, `location` simple ou tableau).
+- GPS du navigateur : `POST /api/tracking/runs/:id/positions` (plutôt que sous `/route-run`), envoi groupé aux 15 s, Wake Lock, reprise après rechargement de la page. Coupé en quittant la page.
+- Limite de débit par appareil (120/min, clé = hash du jeton), pas par IP.
+- Un tracteur déjà en tournée sur une autre route est refusé au démarrage (409) ; désactiver un tracteur en tournée aussi.
+- Réglages `Settings.tracking` (`positionRetentionDays`, `liveTrailMinutes`) : API faite (`GET/PUT /setting/tracking`), écran prévu avec G2.
+- `/suivi` : actualisation aux 10 s (en pause onglet caché), marqueurs mis à jour sur place ; au-delà de 400 arrêts, seuls ceux de la tournée sélectionnée s'affichent.
+- Pas de code QR pour le jeton (copier-coller suffit pour l'instant).
+- Vérifié : 56 tests backend (Postgres jetable) + 21 tests navigateur headless (frontend compilé, auth Firebase simulée, géolocalisation simulée). **La carte Google n'a pas pu être testée ici** (pas d'accès à Google depuis le poste de test) : à valider dans ton navigateur, ainsi que Traccar Client sur un vrai téléphone (URL publique requise).
 
 ### Phase G2 — Arrivées, départs et « Fait » automatique (~2-3 soirées)
 Champs `RouteRunStops` (`ArrivedAt`, `DepartedAt`, `ServiceSeconds`, `TravelSeconds`, `DoneSource`) ; `geofence.js` ; Settings `tracking` ; affichage opérateur « Fait (auto) » + annuler.

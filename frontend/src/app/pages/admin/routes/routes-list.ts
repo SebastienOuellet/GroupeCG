@@ -5,6 +5,8 @@ import { RouteService } from "../../../core/services/route.service";
 import { RouteModel } from "../../../core/models/domain.model";
 import { UserService } from "../../../core/user.service";
 import { ManagedUser, OPERATOR_CAPABLE_ROLES } from "../../../core/models/user.model";
+import { VehicleService } from "../../../core/services/vehicle.service";
+import { Vehicle } from "../../../core/models/vehicle.model";
 
 @Component({
   selector: "app-routes-list",
@@ -14,6 +16,7 @@ import { ManagedUser, OPERATOR_CAPABLE_ROLES } from "../../../core/models/user.m
 export class RoutesList implements OnInit {
   private readonly routeService = inject(RouteService);
   private readonly userService = inject(UserService);
+  private readonly vehicleService = inject(VehicleService);
   private readonly router = inject(Router);
 
   readonly routes = signal<RouteModel[]>([]);
@@ -22,6 +25,7 @@ export class RoutesList implements OnInit {
   readonly showForm = signal(false);
   readonly saving = signal(false);
   readonly users = signal<ManagedUser[]>([]);
+  readonly vehicles = signal<Vehicle[]>([]);
   readonly operators = computed(() => this.users().filter((u) => u.Role === "operator"));
   readonly admins = computed(() => this.users().filter((u) => u.Role === "admin"));
 
@@ -35,8 +39,13 @@ export class RoutesList implements OnInit {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const [routes, users] = await Promise.all([this.routeService.getRoutes(), this.userService.getUsers()]);
+      const [routes, users, vehicles] = await Promise.all([
+        this.routeService.getRoutes(),
+        this.userService.getUsers(),
+        this.vehicleService.getVehicles()
+      ]);
       this.routes.set(routes);
+      this.vehicles.set(vehicles);
       this.users.set(users.filter((u) => OPERATOR_CAPABLE_ROLES.includes(u.Role)));
     } catch (e) {
       this.error.set((e as Error).message);
@@ -51,7 +60,7 @@ export class RoutesList implements OnInit {
   }
 
   openForm(route?: RouteModel): void {
-    this.form = route ? { ...route } : { SortOrder: this.routes().length, OperatorUserId: null };
+    this.form = route ? { ...route } : { SortOrder: this.routes().length, OperatorUserId: null, DefaultVehicleId: null };
     this.showForm.set(true);
   }
 
