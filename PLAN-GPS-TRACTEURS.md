@@ -1,6 +1,6 @@
 # Plan — Géolocalisation des tracteurs (suivi en direct, « Fait » automatique)
 
-> Statut (2026-09-28) : **G1, G2 et G3 livrées sur la branche `GPS`** (pas encore fusionnée dans `main`) = V1 complète, plus une carte du trajet dans la vue opérateur ; G4 à G6 et le journal de passage à faire. Rédigé à partir du code sur `main` (commit `776503a`, après R0-R3 de `PLAN-ROUTES-GOOGLE.md`).
+> Statut (2026-09-28) : **V1 complète (G1, G2, G3) + carte du trajet opérateur**, branche `GPS` fusionnée dans `main`. À faire plus tard : journal de passage (avant les premières plaintes), G4 (après quelques tempêtes), SMS « 15 min avant » (après G4), G5 (ESP32), G6 (FieldOps). Ordre global des travaux : voir « Reste à faire » dans `RESUME-REPRISE.md`. Rédigé à partir du code sur `main` (commit `776503a`, après R0-R3 de `PLAN-ROUTES-GOOGLE.md`).
 >
 > Pour reprendre : lire `RESUME-REPRISE.md` (état du code, démarrage, travail sur deux postes), puis ce plan. Commencer par la phase G1.
 

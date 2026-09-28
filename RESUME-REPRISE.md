@@ -1,6 +1,6 @@
 # GroupeCG — résumé de reprise
 
-> Dernière mise à jour : 2026-09-28 (plan GPS ajouté). **Point d'entrée unique pour reprendre le projet sur n'importe quel PC ou dans un nouveau chat Claude.** Lire ce fichier, puis le plan pertinent (voir « Documents du repo »).
+> Dernière mise à jour : 2026-09-28 (GPS V1 livrée, prochaines étapes priorisées). **Point d'entrée unique pour reprendre le projet sur n'importe quel PC ou dans un nouveau chat Claude.** Lire ce fichier, puis le plan pertinent (voir « Documents du repo »).
 
 ## Repo
 https://github.com/SebastienOuellet/GroupeCG (branche `main`)
@@ -56,6 +56,12 @@ Chaque phase a été vérifiée par script (13 à 25 tests métier par phase, to
 
 - ⚠️ **Migrations `20260928100001-route-sequence` et `20260928100002-add-DrivewaySize-to-ServiceAddresses` à exécuter sur la DB DigitalOcean** (`npm run migrate`) si ce n'est pas déjà fait — sans elles, les tournées et les adresses plantent (colonnes absentes).
 
+### Géolocalisation des tracteurs (28 septembre, branche `GPS` fusionnée dans `main`)
+- `d9ecc8e` / `704d63b` — G1 : véhicules et jetons d'appareil (Paramètres › Véhicules), réception OsmAnd (Traccar Client, ESP32), GPS du téléphone en repli, page `/suivi`, choix du tracteur au démarrage, purge nocturne des positions (Loi 25 : rien n'est gardé hors tournée)
+- `925049b` / `5bc2c62` — G2 : arrivées/départs par géorepérage, « Fait » automatique, durées réelles par arrêt ; carte du trajet dans la vue opérateur (bascule Liste / Carte)
+- `f7f3d69` — G3 : suivi du tracteur dans le portail client (« il reste X arrêts », « déneigée à … »)
+- ⚠️ Migrations `20260928300001-gps-vehicles-positions` et `20260928300002-gps-stop-arrivals` à exécuter sur la DB DigitalOcean (`npm run migrate`).
+
 Détails complets : `git log` (messages de commit en français, avec le pourquoi).
 
 ## Pour redémarrer sur un autre PC
@@ -81,29 +87,26 @@ Migrations : `npm run migrate` dans `backend/` (la DB DigitalOcean est partagée
 
 ## Reste à faire
 
-### Routes : chantier essentiellement terminé (voir `PLAN-ROUTES-GOOGLE.md`)
-- Fait : R0 (Google Cloud), R1 (ordre des arrêts), R2 (optimiseur local + Google), trajet routier sur la carte, R3 (durées, taille d'entrée, départ/retour, routes à réordonner).
-- **Abandonné** (décision du 28 septembre) : R4 (découpage entre routes), R5 (heure estimée dans les SMS), purge serveur des coordonnées Google expirées (serveur de dev).
-- Reste : valider dans le navigateur la page de la route (trajet 🚜, heure de retour), Paramètres › Routes (durées), la taille d'entrée, et le parcours opérateur (« Naviguer » sur téléphone).
-- Avant la prod : **Routes API** activée et permise pour la clé du navigateur, **Map ID** Google dans `googleMapsMapId`, alerte de budget + quota sur Route Optimization et Routes API.
-- Plus tard si besoin : heures limites (`ServiceDeadline` → `timeWindows`) pour commerces/garderies.
+### Prochaines étapes, dans l'ordre (décidé le 28 septembre)
+La neige arrive en novembre : la mise en production passe avant toute nouvelle fonctionnalité.
+1. **Valider GPS sur le terrain** (1 soirée + un tour en voiture) : `npm run migrate` sur la DB DigitalOcean (migrations `20260928300001` et `20260928300002`), Traccar Client dans un véhicule (via ngrok en attendant la prod), 3-4 adresses de la route test ; ajuster rayon / durée minimale (Paramètres › Véhicules) si les « Fait » automatiques se déclenchent mal.
+2. **Déploiement** (2-3 soirées) — le gros morceau manquant. DB DigitalOcean déjà en place ; héberger backend + frontend (App Platform ou Droplet Docker), domaine en HTTPS (remplace ngrok pour Traccar Client et pour le GPS du téléphone), secrets en variables d'environnement, Google : vrai Map ID (`googleMapsMapId`), clés restreintes au domaine de prod, Routes API permise, alerte de budget + quota (Route Optimization, Routes API). À décider : nom de domaine, App Platform ou Droplet.
+3. **Twilio en vrai** (1 soirée) : compte + numéro canadien (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID`), `NOTIFICATIONS_DRY_RUN=false`, webhook STOP vers `/api/webhook/twilio/sms` en prod avec `TWILIO_VALIDATE_SIGNATURE=true`, envoi test à soi-même avant le premier avis de départ.
+4. **Journal de passage** (2 soirées), avant les premières plaintes « vous n'êtes pas passés » : événements append-only par arrêt, historique dans la fiche du contrat (détail dans `PLAN-GPS-TRACTEURS.md`). Aujourd'hui, « Annuler » efface les heures GPS et les positions brutes sont purgées après 30 jours.
 
-### Géolocalisation des tracteurs (voir `PLAN-GPS-TRACTEURS.md`)
-- **Branche `GPS`** (pas encore dans `main`). G1 livrée : véhicules et jetons (Paramètres › Véhicules), réception OsmAnd (Traccar Client / ESP32), GPS du téléphone en repli, page `/suivi`, choix du tracteur au démarrage, purge nocturne des positions.
-- G2 : arrivées/départs détectés par GPS, « Fait » automatique (réglable dans Paramètres › Véhicules), durées réelles par arrêt ; carte du trajet dans la vue opérateur (bascule Liste / Carte).
-- ⚠️ Migrations `20260928300001-gps-vehicles-positions` et `20260928300002-gps-stop-arrivals` à exécuter sur la DB DigitalOcean avant de tester la branche (`npm run migrate`). Elles n'existent pas sur `main` : ne pas lancer `migrate` depuis `main` ensuite sans la branche.
-- À valider dans le navigateur : la carte Google de `/suivi` (non testable depuis le poste de Claude), Traccar Client sur un téléphone (URL publique du serveur requise, ou tunnel ngrok).
-- À valider sur le terrain : la carte et le trajet de la vue opérateur (Routes API), un vrai « Fait » automatique en voiture (rayon 35 m, 45 s minimum).
-- G3 : le client voit dans le portail « il reste X arrêts avant le vôtre », le tracteur sur une carte, puis « Votre entrée a été déneigée à … ». Désactivable dans Paramètres › Véhicules.
-- Suite : journal de passage non modifiable (preuve de service, demandé et reporté), G4 (calibration des durées) après quelques tempêtes, fusion de `GPS` dans `main` une fois validée sur le terrain.
-- V1 = G1 + G2 (« Fait » automatique) + G3 (suivi dans le portail). Pas de SMS automatique d'arrivée avant d'avoir calibré les durées (G4).
+### Plus tard, selon les besoins
+- **G4 — calibration des durées** : quand il y aura quelques tempêtes de données (≈ 20 passages par type d'entrée). Médianes réelles par revêtement × taille, bouton « Appliquer », trajet réel vs estimé. Prérequis au SMS « on arrive dans 15-20 min ».
+- **SMS « 15 min avant »** : après G4, optionnel par client (volume de SMS par tempête).
+- **G5 — ESP32 cellulaire** dans les tracteurs (même protocole OsmAnd, aucun code serveur de plus).
+- **G6 — connecteur FieldOps** pour le tracteur Case (mesurer d'abord la fréquence des positions de l'API CNH).
+- **Portail** : prolonger la session (30 min aujourd'hui) pendant une tournée en cours, si des clients suivent le tracteur plus longtemps.
+- **Routes** : heures limites (`ServiceDeadline` → `timeWindows`) pour commerces/garderies.
 
-### Autres
-- Valider visuellement le parcours opérateur complet dans le navigateur (compte Firebase avec Role="operator", route assignée, démarrer/cocher/terminer).
-- Configurer un vrai compte Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID`) et passer `NOTIFICATIONS_DRY_RUN=false` quand prêt.
-- Configurer le webhook Twilio STOP vers `/api/webhook/twilio/sms` en prod (avec `TWILIO_VALIDATE_SIGNATURE=true`).
-- Déploiement (aucune infra de prod configurée — DB DigitalOcean existe déjà, backend/frontend à héberger).
-- Rien d'urgent niveau dette technique : lint backend propre, pas de TODO connu.
+### Déjà fait, à valider dans le navigateur
+- Routes (`PLAN-ROUTES-GOOGLE.md`) : page de la route (trajet 🚜, heure de retour), Paramètres › Routes (durées), taille d'entrée, « Naviguer » sur téléphone. R4, R5 et la purge serveur des coordonnées Google ont été **abandonnés** (décision du 28 septembre).
+- GPS (`PLAN-GPS-TRACTEURS.md`, V1 = G1 + G2 + G3) : carte Google de `/suivi`, carte et trajet de la vue opérateur, carte du portail (aucune n'a pu être testée depuis le poste de Claude, Google y est bloqué).
+- Parcours opérateur complet avec un compte Firebase `operator` (démarrer, cocher, terminer).
+- Dette technique : rien d'urgent, lint backend propre, pas de TODO connu.
 
 ## Travailler sur deux PC / deux chats en même temps
 Les deux postes partagent **le même repo `main` et la même base de données DigitalOcean**. Règles pour ne pas se marcher dessus :
