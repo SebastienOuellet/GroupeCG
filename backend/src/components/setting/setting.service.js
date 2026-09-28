@@ -7,7 +7,7 @@ import { buildContractPdf } from "../../documents/contractPdf.js";
 import { computeTotals } from "../invoice/invoice.money.js";
 import { keepLocationDateIfUnchanged, normalizeNamedLocation } from "../../shared/location.js";
 import { DEFAULT_ROUTE_OPTIMIZATION_SETTINGS, ROUTE_OPTIMIZATION_LIMITS } from "../route/route.constants.js";
-import { DEFAULT_TRACKING_SETTINGS, TRACKING_LIMITS } from "../tracking/tracking.constants.js";
+import { DEFAULT_TRACKING_SETTINGS, TRACKING_BOOLEAN_SETTINGS, TRACKING_LIMITS } from "../tracking/tracking.constants.js";
 
 const { Setting } = db;
 
@@ -215,14 +215,23 @@ export const getTrackingSettings = async () => {
   return { values, defaults: DEFAULT_TRACKING_SETTINGS, updatedAt: row?.updatedAt ?? null };
 };
 
+/** Mise à jour partielle : une clé absente garde sa valeur actuelle (écran qui ne la connaît pas encore). */
 export const updateTrackingSettings = async (input, userId = null) => {
-  const values = {};
+  const { values } = await getTrackingSettings();
   for (const [key, { min, max }] of Object.entries(TRACKING_LIMITS)) {
+    if (input?.[key] === undefined) continue;
     const number = Number(input?.[key]);
     if (!Number.isInteger(number) || number < min || number > max) {
       throw new BadRequestError(`Suivi « ${key} » : doit être un entier entre ${min} et ${max}.`);
     }
     values[key] = number;
+  }
+  for (const key of TRACKING_BOOLEAN_SETTINGS) {
+    if (input?.[key] === undefined) continue;
+    if (typeof input[key] !== "boolean") {
+      throw new BadRequestError(`Suivi « ${key} » : doit être vrai ou faux.`);
+    }
+    values[key] = input[key];
   }
   const [row] = await Setting.findOrCreate({
     where: { Key: SETTING_KEYS.TRACKING },

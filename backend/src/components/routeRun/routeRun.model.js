@@ -38,6 +38,10 @@ export default (sequelize) => {
       /** Tracteur confirmé au démarrage ; ses positions (Traccar/ESP32) sont rattachées à cette tournée. */
       VehicleId: {
         type: DataTypes.INTEGER
+      },
+      /** État du géorepérage entre deux envois de positions (voir src/tracking/geofence.js). */
+      GeofenceState: {
+        type: DataTypes.JSONB
       }
     },
     {

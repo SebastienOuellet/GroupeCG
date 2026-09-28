@@ -15,13 +15,35 @@ export const DEFAULT_TRACKING_SETTINGS = {
   /** Positions brutes conservées N jours, puis purgées (Loi 25). Les durées par arrêt restent. */
   positionRetentionDays: 30,
   /** Traînée affichée derrière chaque tracteur sur la carte en direct. */
-  liveTrailMinutes: 30
+  liveTrailMinutes: 30,
+  /** « Fait » automatique quand le tracteur repart d'une entrée. Désactivé : les durées sont quand même enregistrées. */
+  autoCompleteStops: true,
+  /** Rayon d'arrivée autour du pin de l'adresse (m). */
+  geofenceRadiusM: 35,
+  /** Hystérésis : on considère le tracteur reparti au-delà de rayon + marge (évite les allers-retours au bord). */
+  exitMarginM: 25,
+  /** En dessous, c'est un simple passage devant l'adresse, pas un déneigement. */
+  minDwellSeconds: 45,
+  /** Arrêts à faire (dans l'ordre) où l'on cherche une arrivée : évite de confondre avec une adresse plus loin sur la route. */
+  lookaheadStops: 3
 };
 
+/** Réglages numériques (entiers) et leurs bornes ; les booléens sont dans TRACKING_BOOLEAN_SETTINGS. */
 export const TRACKING_LIMITS = {
   positionRetentionDays: { min: 1, max: 365 },
-  liveTrailMinutes: { min: 5, max: 240 }
+  liveTrailMinutes: { min: 5, max: 240 },
+  geofenceRadiusM: { min: 10, max: 200 },
+  exitMarginM: { min: 5, max: 200 },
+  minDwellSeconds: { min: 10, max: 1800 },
+  lookaheadStops: { min: 1, max: 10 }
 };
+
+export const TRACKING_BOOLEAN_SETTINGS = ["autoCompleteStops"];
+
+/** Au-delà, une position est trop imprécise pour décider d'une arrivée (gardée pour la carte). */
+export const GEOFENCE_MAX_ACCURACY_M = 100;
+/** Positions consécutives requises pour confirmer une arrivée ou un départ (filtre les sauts GPS). */
+export const GEOFENCE_CONFIRMATIONS = 2;
 
 /** Garde-fous sur les positions reçues. */
 export const POSITION_RULES = {

@@ -32,6 +32,25 @@ export default (sequelize) => {
       DoneAt: {
         type: DataTypes.DATE
       },
+      /** manual / auto_gps (STOP_DONE_SOURCE). */
+      DoneSource: {
+        type: DataTypes.STRING(20)
+      },
+      /** Détectés par GPS (géorepérage) ; gardés quand l'opérateur coche à la main. */
+      ArrivedAt: {
+        type: DataTypes.DATE
+      },
+      DepartedAt: {
+        type: DataTypes.DATE
+      },
+      /** Durée de déneigement réelle (départ − arrivée). Sert à calibrer les durées (G4). */
+      ServiceSeconds: {
+        type: DataTypes.INTEGER
+      },
+      /** Trajet réel depuis le départ de l'arrêt précédent (ou le début de la tournée). */
+      TravelSeconds: {
+        type: DataTypes.INTEGER
+      },
       Notes: {
         type: DataTypes.TEXT
       }

@@ -4,7 +4,8 @@ import { logger } from "../../config/logger.js";
 import { ROUTE_RUN_STATUS } from "../routeRun/routeRun.constants.js";
 import { USER_ROLES } from "../user/user.constants.js";
 import { getTrackingSettings } from "../setting/setting.service.js";
-import { POSITION_RULES, POSITION_SOURCE, POSITION_SOURCES, STALE_POSITION_MS } from "./tracking.constants.js";
+import { GEOFENCE_MAX_ACCURACY_M, POSITION_RULES, POSITION_SOURCE, POSITION_SOURCES, STALE_POSITION_MS } from "./tracking.constants.js";
+import { advanceGeofence } from "../../tracking/geofence.js";
 
 const { RouteRun, RouteRunStop, Route, User, Vehicle, VehiclePosition, Contract, ServiceAddress, Sequelize, sequelize } = db;
 const { Op } = Sequelize;
@@ -79,7 +80,92 @@ const storePositions = async (run, vehicle, rawPositions, source) => {
       await updateVehicleLastPosition(vehicle, rows[rows.length - 1]);
     }
   }
-  return { accepted: rows.length, rejected: rawPositions.length - rows.length };
+  const result = { accepted: rows.length, rejected: rawPositions.length - rows.length };
+  if (rows.length > 0) {
+    try {
+      Object.assign(result, await processGeofence(run.Id, rows));
+    } catch (error) {
+      // Les positions sont enregistrées ; la détection reprendra au prochain envoi
+      logger.error(`Géorepérage en échec pour la tournée #${run.Id} : ${error.message}`);
+    }
+  }
+  return result;
+};
+
+/* ------------------------------------------------------------------ */
+/* Géorepérage : arrivées, départs, « Fait » automatique               */
+/* ------------------------------------------------------------------ */
+
+const toNumber = (value) => (value == null ? null : Number(value));
+
+/**
+ * Fait avancer la détection d'arrivée/départ avec ces positions. Verrou sur la ligne de la
+ * tournée : deux envois simultanés (appareil + téléphone) sont traités l'un après l'autre.
+ */
+export const processGeofence = async (runId, rows) => {
+  const { values: settings } = await getTrackingSettings();
+  const positions = rows
+    .filter((row) => row.AccuracyM == null || Number(row.AccuracyM) <= GEOFENCE_MAX_ACCURACY_M)
+    .map((row) => ({ latitude: Number(row.Latitude), longitude: Number(row.Longitude), recordedAt: row.RecordedAt }));
+  if (positions.length === 0) return { arrived: 0, autoDone: 0 };
+
+  return sequelize.transaction(async (transaction) => {
+    const run = await RouteRun.findByPk(runId, { attributes: ["Id", "Status", "StartedAt", "GeofenceState"], lock: transaction.LOCK.UPDATE, transaction });
+    if (!run || run.Status !== ROUTE_RUN_STATUS.IN_PROGRESS) return { arrived: 0, autoDone: 0 };
+
+    const stops = await RouteRunStop.findAll({
+      where: { RouteRunId: run.Id },
+      attributes: ["Id", "Sequence", "Status", "DoneAt", "DoneSource", "ArrivedAt", "DepartedAt", "ServiceSeconds", "TravelSeconds"],
+      include: [{ model: Contract, as: "Contract", attributes: ["Id"], include: [{ model: ServiceAddress, as: "ServiceAddress", attributes: ["Latitude", "Longitude"] }] }],
+      transaction
+    });
+
+    const { state, changed } = advanceGeofence({
+      state: run.GeofenceState,
+      runStartedAt: run.StartedAt,
+      settings,
+      positions,
+      stops: stops.map((stop) => ({
+        id: stop.Id,
+        sequence: stop.Sequence,
+        status: stop.Status,
+        latitude: toNumber(stop.Contract?.ServiceAddress?.Latitude),
+        longitude: toNumber(stop.Contract?.ServiceAddress?.Longitude),
+        arrivedAt: stop.ArrivedAt,
+        departedAt: stop.DepartedAt,
+        serviceSeconds: stop.ServiceSeconds,
+        travelSeconds: stop.TravelSeconds,
+        doneAt: stop.DoneAt,
+        doneSource: stop.DoneSource
+      }))
+    });
+
+    let autoDone = 0;
+    for (const stop of changed) {
+      const original = stops.find((row) => row.Id === stop.id);
+      if (original.Status !== stop.status) autoDone += 1;
+      await RouteRunStop.update(
+        {
+          Status: stop.status,
+          DoneAt: stop.doneAt,
+          DoneSource: stop.doneSource,
+          ArrivedAt: stop.arrivedAt,
+          DepartedAt: stop.departedAt,
+          ServiceSeconds: stop.serviceSeconds,
+          TravelSeconds: stop.travelSeconds
+        },
+        { where: { Id: stop.id }, transaction }
+      );
+    }
+    run.GeofenceState = state;
+    run.changed("GeofenceState", true);
+    await run.save({ transaction });
+
+    if (autoDone > 0) {
+      logger.info(`Géorepérage | tournée #${run.Id} | ${autoDone} arrêt(s) fait(s) automatiquement`);
+    }
+    return { arrived: changed.filter((stop) => stop.arrivedAt && !stop.departedAt).length, autoDone };
+  });
 };
 
 const updateVehicleLastPosition = async (vehicle, latest) => {
@@ -194,7 +280,7 @@ export const getLiveRuns = async () => {
       {
         model: RouteRunStop,
         as: "Stops",
-        attributes: ["Id", "Sequence", "Status", "DoneAt", "ContractId"],
+        attributes: ["Id", "Sequence", "Status", "DoneAt", "DoneSource", "ArrivedAt", "ContractId"],
         include: [
           {
             model: Contract,
@@ -249,6 +335,8 @@ export const getLiveRuns = async () => {
           sequence: stop.Sequence,
           status: stop.Status,
           doneAt: stop.DoneAt,
+          doneSource: stop.DoneSource,
+          arrivedAt: stop.ArrivedAt,
           reference: stop.Contract?.Reference ?? null,
           address: addressJson(stop.Contract?.ServiceAddress)
         }))

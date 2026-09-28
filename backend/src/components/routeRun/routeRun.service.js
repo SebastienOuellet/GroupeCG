@@ -2,7 +2,8 @@ import db from "../../../models/index.js";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../../errors/Errors.js";
 import { logger } from "../../config/logger.js";
 import * as notificationService from "../notification/notification.service.js";
-import { ROUTE_RUN_STATUS, ROUTE_RUN_STOP_STATUS, ROUTE_RUN_STOP_STATUSES } from "./routeRun.constants.js";
+import { ROUTE_RUN_STATUS, ROUTE_RUN_STOP_STATUS, ROUTE_RUN_STOP_STATUSES, STOP_DONE_SOURCE } from "./routeRun.constants.js";
+import { getRouteDepot } from "../setting/setting.service.js";
 import { CONTRACT_STATUS } from "../contract/contract.constants.js";
 import { BATCH_TYPES, TARGET_TYPES } from "../notification/notification.constants.js";
 import { TEMPLATE_TYPES } from "../template/template.model.js";
@@ -73,13 +74,33 @@ export const getCurrentRun = async (routeId, user) => {
     order: stopOrder
   });
 
-  return { route, run: run ? await withSignal(run) : null };
+  return { route, run: run ? await withSignal(run) : null, endpoint: await resolveRunEndpoint(route) };
 };
 
-/** Ajoute l'état du suivi GPS (dernière position reçue, muet ou non) pour l'indicateur de l'opérateur. */
+/**
+ * Départ et retour de la carte opérateur : point d'attache de la route, sinon dépôt.
+ * null si rien n'est configuré (la carte trace alors seulement les arrêts).
+ */
+const resolveRunEndpoint = async (route) => {
+  const location = route.BaseLocation ?? (await getRouteDepot()).value;
+  if (!location) return null;
+  return { label: location.label, latitude: Number(location.latitude), longitude: Number(location.longitude) };
+};
+
+/**
+ * Ajoute l'état du suivi GPS (dernière position reçue, muet ou non) pour l'indicateur de
+ * l'opérateur, et la dernière position elle-même pour sa carte.
+ */
 const withSignal = async (run) => {
   const lastPositions = await getLastPositions([run.Id]);
-  return { ...run.toJSON(), Signal: describeSignal(lastPositions.get(run.Id) ?? null) };
+  const last = lastPositions.get(run.Id) ?? null;
+  const json = run.toJSON();
+  delete json.GeofenceState;
+  return {
+    ...json,
+    Signal: describeSignal(last),
+    LastPosition: last ? { latitude: last.latitude, longitude: last.longitude, heading: last.heading, recordedAt: last.recordedAt } : null
+  };
 };
 
 /**
@@ -200,7 +221,14 @@ export const updateStop = async (stopId, status, user) => {
   assertRouteAccess(stop.RouteRun.Route, user);
 
   stop.Status = status;
-  stop.DoneAt = status === ROUTE_RUN_STOP_STATUS.PENDING ? null : new Date();
+  if (status === ROUTE_RUN_STOP_STATUS.PENDING) {
+    // Annuler efface aussi ce que le GPS avait détecté : une fausse détection ne doit pas fausser les durées
+    Object.assign(stop, { DoneAt: null, DoneSource: null, ArrivedAt: null, DepartedAt: null, ServiceSeconds: null, TravelSeconds: null });
+  } else {
+    // Coché à la main : les heures d'arrivée/départ déjà détectées restent (utiles pour calibrer)
+    stop.DoneAt = new Date();
+    stop.DoneSource = STOP_DONE_SOURCE.MANUAL;
+  }
   await stop.save();
   return stop;
 };
