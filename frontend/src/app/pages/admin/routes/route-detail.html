@@ -168,12 +168,13 @@
           (pinMoved)="onPinMoved($event)"
           (stopClicked)="focusStop($event)"
         />
-        <p class="form-hint route-map-card__legend">
-          <span class="dot dot--placed"></span> placé
-          <span class="dot dot--unplaced"></span> à placer
-          <span class="dot dot--manual"></span> pin manuel
-          <span class="dot dot--endpoint"></span> départ/retour (D). Tracé à vol d'oiseau : il montre l'ordre, pas le chemin.
-        </p>
+        <ul class="map-legend" aria-label="Légende de la carte">
+          <li class="map-legend__item"><span class="map-legend__dot map-legend__dot--placed"></span>Placé</li>
+          <li class="map-legend__item"><span class="map-legend__dot map-legend__dot--unplaced"></span>À placer</li>
+          <li class="map-legend__item"><span class="map-legend__dot map-legend__dot--manual"></span>Pin manuel</li>
+          <li class="map-legend__item"><span class="map-legend__dot map-legend__dot--endpoint">D</span>Départ / retour</li>
+        </ul>
+        <p class="form-hint route-map-card__note">Le tracé est à vol d'oiseau : il montre l'ordre de passage, pas le chemin routier.</p>
       } @else {
         <p class="empty-state">Carte indisponible : clé Google Maps non configurée.</p>
       }
