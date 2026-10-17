@@ -31,13 +31,26 @@
     color: var(--color-primary);
   }
 
-  // Avis aux clients : sauts de ligne du message conservés.
+  // Avis aux clients (environment.clientNotice), au-dessus du formulaire. Sauts de ligne conservés.
   &__notice {
-    margin: 0;
-    text-align: center;
-    line-height: 1.5;
+    padding: 0.75rem 0.875rem;
+    background: #eef2fa;
+    border-left: 4px solid var(--color-primary);
+    border-radius: 6px;
     color: var(--color-secondary);
-    white-space: pre-line;
+    font-size: 0.875rem;
+    line-height: 1.45;
+
+    strong {
+      display: block;
+      margin-bottom: 0.25rem;
+      color: var(--color-primary);
+    }
+
+    p {
+      margin: 0;
+      white-space: pre-line;
+    }
   }
 
   &__hint {

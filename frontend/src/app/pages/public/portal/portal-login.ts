@@ -17,7 +17,7 @@ export class PortalLogin {
   private readonly session = inject(PortalSessionService);
   private readonly router = inject(Router);
 
-  /** Avis affiché à la place du formulaire (environment.clientNotice). */
+  /** Avis affiché au-dessus du formulaire (environment.clientNotice). */
   readonly notice = environment.clientNotice.enabled ? environment.clientNotice : null;
 
   reference = "";

@@ -1,40 +1,39 @@
 <div class="portal-page">
-  @if (notice) {
-    <div class="portal-card">
-      <img class="portal-card__logo" src="images/logo.png" alt="Groupe CG" />
-      <h1>{{ notice.title }}</h1>
-      <p class="portal-card__notice">{{ notice.message }}</p>
-      <a class="portal-card__staff" routerLink="/login">Accès employés</a>
-    </div>
-  } @else {
-    <form class="portal-card" (ngSubmit)="onSubmit()">
-      <img class="portal-card__logo" src="images/logo.png" alt="Groupe CG" />
-      <h1>Espace client</h1>
-      <p class="portal-card__hint">Gérez les personnes à joindre chez vous pour les avis de déneigement.</p>
+  <form class="portal-card" (ngSubmit)="onSubmit()">
+    <img class="portal-card__logo" src="images/logo.png" alt="Groupe CG" />
+    <h1>Espace client</h1>
 
-      <label class="field">
-        <span>Référence client (ex. 26-1001)</span>
-        <input name="reference" [(ngModel)]="reference" required autocomplete="off" />
-      </label>
+    @if (notice) {
+      <div class="portal-card__notice" role="status">
+        <strong>{{ notice.title }}</strong>
+        <p>{{ notice.message }}</p>
+      </div>
+    }
 
-      <label class="field">
-        <span>Numéro de contrat</span>
-        <input name="contractNumber" [(ngModel)]="contractNumber" inputmode="numeric" required autocomplete="off" />
-      </label>
+    <p class="portal-card__hint">Gérez les personnes à joindre chez vous pour les avis de déneigement.</p>
 
-      @if (error()) {
-        <p class="portal-card__error">{{ error() }}</p>
-      }
+    <label class="field">
+      <span>Référence client (ex. 26-1001)</span>
+      <input name="reference" [(ngModel)]="reference" required autocomplete="off" />
+    </label>
 
-      <button type="submit" class="btn-primary" [disabled]="loading()">
-        {{ loading() ? "Vérification..." : "Accéder à mon dossier" }}
-      </button>
+    <label class="field">
+      <span>Numéro de contrat</span>
+      <input name="contractNumber" [(ngModel)]="contractNumber" inputmode="numeric" required autocomplete="off" />
+    </label>
 
-      <p class="portal-card__hint">
-        Ces informations se trouvent sur votre contrat de déneigement.
-      </p>
+    @if (error()) {
+      <p class="portal-card__error">{{ error() }}</p>
+    }
 
-      <a class="portal-card__staff" routerLink="/login">Accès employés</a>
-    </form>
-  }
+    <button type="submit" class="btn-primary" [disabled]="loading()">
+      {{ loading() ? "Vérification..." : "Accéder à mon dossier" }}
+    </button>
+
+    <p class="portal-card__hint">
+      Ces informations se trouvent sur votre contrat de déneigement.
+    </p>
+
+    <a class="portal-card__staff" routerLink="/login">Accès employés</a>
+  </form>
 </div>
