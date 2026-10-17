@@ -9,10 +9,25 @@ const __dirname = path.dirname(__filename);
 const envPath = path.resolve(__dirname, "../../.env");
 config({ path: envPath });
 
+function parseTrustProxy(value) {
+  if (value === undefined || value === "") return 1;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (/^\d+$/.test(value)) return Number(value);
+  return value;
+}
+
 export const defaultConfig = {
   NODE_ENV: process.env.NODE_ENV || "development",
   NODE_URL: process.env.NODE_URL,
   PORT: Number(process.env.PORT) || 5010,
+  /**
+   * Proxys de confiance devant Express (valeur de app.set("trust proxy")).
+   * En prod (App Platform, ngrok), le HTTPS se termine au proxy : sans ça, req.protocol
+   * vaut "http" (signature Twilio invalide) et req.ip est l'IP du proxy (rate limit partagé).
+   * Nombre de sauts ("1" par défaut), "false" pour désactiver, ou liste d'IP/sous-réseaux.
+   */
+  TRUST_PROXY: parseTrustProxy(process.env.TRUST_PROXY),
 
   DB_USER: process.env.DB_USER,
   DB_PW: process.env.DB_PW,

@@ -18,7 +18,7 @@ export class Server {
     this.app = express();
     this.router = null;
 
-    setupExpressServer(this.app);
+    setupExpressServer(this.app, this.config);
     setupExpressListeners(this.app, this.config);
   }
 
