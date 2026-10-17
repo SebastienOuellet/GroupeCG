@@ -31,6 +31,15 @@
     color: var(--color-primary);
   }
 
+  // Avis aux clients : sauts de ligne du message conservés.
+  &__notice {
+    margin: 0;
+    text-align: center;
+    line-height: 1.5;
+    color: var(--color-secondary);
+    white-space: pre-line;
+  }
+
   &__hint {
     margin: 0;
     text-align: center;

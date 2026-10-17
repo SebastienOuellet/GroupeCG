@@ -4,6 +4,7 @@ import { Router, RouterLink } from "@angular/router";
 import { PortalApiService } from "../../../core/portal/portal-api.service";
 import { PortalSessionService } from "../../../core/portal/portal-session.service";
 import { PortalLoginResponse } from "../../../core/models/portal.model";
+import { environment } from "../../../../environments/environment";
 
 @Component({
   selector: "app-portal-login",
@@ -15,6 +16,9 @@ export class PortalLogin {
   private readonly portalApi = inject(PortalApiService);
   private readonly session = inject(PortalSessionService);
   private readonly router = inject(Router);
+
+  /** Avis affiché à la place du formulaire (environment.clientNotice). */
+  readonly notice = environment.clientNotice.enabled ? environment.clientNotice : null;
 
   reference = "";
   contractNumber = "";

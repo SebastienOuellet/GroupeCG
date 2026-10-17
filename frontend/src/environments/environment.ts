@@ -3,6 +3,16 @@ export const environment = {
   apiUrl: 'https://deneigement-be-app-ccytc.ondigitalocean.app/api',
   googleMapsApiKey: 'AIzaSyCAd2AZi7voXa--h8dQ7pLJfQMmerlxZlA',
   googleMapsMapId: '',
+  /**
+   * Avis aux clients sur l'espace client (/portail). enabled: true → le message remplace le
+   * formulaire de connexion (avant la mise en service, panne, fin de saison…). Le lien
+   * « Accès employés » et la page de désinscription restent accessibles. Rebuild + redéploiement requis.
+   */
+  clientNotice: {
+    enabled: true,
+    title: 'Bientôt disponible',
+    message: "Chers clients, vous recevrez bientôt l'information sur le fonctionnement du système de notification.",
+  },
   firebase: {
     apiKey: 'AIzaSyBGoCSp5UUVuBF4l2qQWKZ2J9GFbmEEGTg',
     authDomain: 'groupecg-fbe5b.firebaseapp.com',
