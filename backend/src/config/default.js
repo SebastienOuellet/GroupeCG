@@ -17,6 +17,21 @@ function parseTrustProxy(value) {
   return value;
 }
 
+const DEV_FRONTEND_ORIGINS = ["http://localhost:4200", "https://localhost:4200"];
+
+/**
+ * Origines navigateur autorisées (CORS). Liste séparée par des virgules dans CORS_ORIGINS ;
+ * sinon l'origine de PUBLIC_BASE_URL, plus localhost:4200 hors production.
+ */
+function parseCorsOrigins(value, publicBaseUrl, nodeEnv) {
+  if (value) {
+    return value.split(",").map((origin) => origin.trim().replace(/\/+$/, "")).filter(Boolean);
+  }
+  const origins = [new URL(publicBaseUrl).origin];
+  if (nodeEnv !== "production") origins.push(...DEV_FRONTEND_ORIGINS);
+  return [...new Set(origins)];
+}
+
 export const defaultConfig = {
   NODE_ENV: process.env.NODE_ENV || "development",
   NODE_URL: process.env.NODE_URL,
@@ -58,6 +73,15 @@ export const defaultConfig = {
    */
   CONTRACT_EMAIL_DRY_RUN: process.env.CONTRACT_EMAIL_DRY_RUN === "true",
   PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL || "http://localhost:4200",
+  /**
+   * Bloque seulement les appels faits par le JavaScript d'un autre site dans un navigateur.
+   * Postman, curl, Twilio et Traccar n'envoient pas d'Origin : ils ne sont pas touchés.
+   */
+  CORS_ORIGINS: parseCorsOrigins(
+    process.env.CORS_ORIGINS,
+    process.env.PUBLIC_BASE_URL || "http://localhost:4200",
+    process.env.NODE_ENV || "development"
+  ),
   UNSUBSCRIBE_SECRET: process.env.UNSUBSCRIBE_SECRET,
   PORTAL_TOKEN_SECRET: process.env.PORTAL_TOKEN_SECRET,
   RENEWAL_REMINDER_DAYS: Number(process.env.RENEWAL_REMINDER_DAYS) || 45,

@@ -65,6 +65,7 @@ Chaque phase a été vérifiée par script (13 à 25 tests métier par phase, to
 ### Préparation de la prod (17 octobre)
 - URLs de prod : frontend **https://notifications.deneigementgroupecg.ca**, backend App Platform **https://deneigement-be-app-ccytc.ondigitalocean.app** (`apiUrl` dans `environment.ts`).
 - `trust proxy` Express (variable `TRUST_PROXY`, `1` par défaut) : derrière App Platform/ngrok, `req.protocol` valait `http` → toutes les signatures Twilio étaient rejetées (403, STOP jamais enregistrés), et `req.ip` était l'IP du proxy → rate limit partagé par tous les clients. Vérifié par script (requête signée https derrière proxy : 403 avant, 204 après ; rate limit par IP client).
+- CORS restreint au frontend (`CORS_ORIGINS`) : un autre site ne peut plus appeler l'API depuis le navigateur d'un utilisateur. Postman, curl, Twilio et Traccar ne sont pas touchés (pas d'en-tête `Origin`). En prod, définir `NODE_ENV=production` pour retirer `localhost:4200` ; ajouter l'URL d'une préversion ou de ngrok à `CORS_ORIGINS` si on y sert le frontend. Vérifié dans Chromium : appel bloqué depuis une autre origine, accepté depuis le frontend.
 
 Détails complets : `git log` (messages de commit en français, avec le pourquoi).
 
@@ -77,7 +78,7 @@ cd ../frontend && npm install
 Si le repo est déjà cloné : `git pull` sur `main` **avant toute chose**.
 
 **Fichiers à recréer manuellement (non versionnés) :**
-- `backend/.env` — liste complète des variables dans `backend/src/config/default.js`. Contient : connexion DB PostgreSQL DigitalOcean (`DB_*`), `FIREBASE_CREDENTIAL_FILE`, SMTP2GO (`SMTPGO_*`, `NO_REPLY_EMAIL`), `NOTIFICATIONS_DRY_RUN=true` (garder `true` tant que Twilio n'est pas configuré), `CONTRACT_EMAIL_DRY_RUN`, `PUBLIC_BASE_URL`, `UNSUBSCRIBE_SECRET`, `PORTAL_TOKEN_SECRET`, `RENEWAL_REMINDER_DAYS=45`, `TWILIO_VALIDATE_SIGNATURE=false` (dev seulement), `TRUST_PROXY` (optionnel, `1` par défaut ; `false` si le backend est exposé sans proxy), infos entreprise pour le PDF (`COMPANY_*`, numéros TPS/TVQ).
+- `backend/.env` — liste complète des variables dans `backend/src/config/default.js`. Contient : connexion DB PostgreSQL DigitalOcean (`DB_*`), `FIREBASE_CREDENTIAL_FILE`, SMTP2GO (`SMTPGO_*`, `NO_REPLY_EMAIL`), `NOTIFICATIONS_DRY_RUN=true` (garder `true` tant que Twilio n'est pas configuré), `CONTRACT_EMAIL_DRY_RUN`, `PUBLIC_BASE_URL`, `UNSUBSCRIBE_SECRET`, `PORTAL_TOKEN_SECRET`, `RENEWAL_REMINDER_DAYS=45`, `TWILIO_VALIDATE_SIGNATURE=false` (dev seulement), `TRUST_PROXY` (optionnel, `1` par défaut ; `false` si le backend est exposé sans proxy), `CORS_ORIGINS` (optionnel, liste séparée par des virgules ; défaut = origine de `PUBLIC_BASE_URL`, plus `localhost:4200` hors production), infos entreprise pour le PDF (`COMPANY_*`, numéros TPS/TVQ).
 - `backend/firebaseConfig/<fichier>.json` — service account Firebase (voir `backend/firebaseConfig/README.md`).
 - `frontend/public/images/logo.png` — le logo Groupe CG (si absent après clone).
 - Config Firebase web et `googleMapsApiKey` dans `frontend/src/environments/environment*.ts` : fichiers versionnés (clés web publiques par nature). **La clé Google Maps doit rester restreinte par référent HTTP** dans la console Google Cloud.
