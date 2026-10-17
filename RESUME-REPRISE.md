@@ -66,6 +66,7 @@ Chaque phase a été vérifiée par script (13 à 25 tests métier par phase, to
 - URLs de prod : frontend **https://notifications.deneigementgroupecg.ca**, backend App Platform **https://deneigement-be-app-ccytc.ondigitalocean.app** (`apiUrl` dans `environment.ts`).
 - `trust proxy` Express (variable `TRUST_PROXY`, `1` par défaut) : derrière App Platform/ngrok, `req.protocol` valait `http` → toutes les signatures Twilio étaient rejetées (403, STOP jamais enregistrés), et `req.ip` était l'IP du proxy → rate limit partagé par tous les clients. Vérifié par script (requête signée https derrière proxy : 403 avant, 204 après ; rate limit par IP client).
 - CORS restreint au frontend (`CORS_ORIGINS`) : un autre site ne peut plus appeler l'API depuis le navigateur d'un utilisateur. Postman, curl, Twilio et Traccar ne sont pas touchés (pas d'en-tête `Origin`). En prod, définir `NODE_ENV=production` pour retirer `localhost:4200` ; ajouter l'URL d'une préversion ou de ngrok à `CORS_ORIGINS` si on y sert le frontend. Vérifié dans Chromium : appel bloqué depuis une autre origine, accepté depuis le frontend.
+- Racine du domaine pour un visiteur non connecté → `/portail` (espace client) au lieu de `/login`. Les pages internes (`/clients`, `/routes/5`…) gardent `/login?returnUrl=…`. Lien discret « Accès employés » sur le portail.
 
 Détails complets : `git log` (messages de commit en français, avec le pourquoi).
 

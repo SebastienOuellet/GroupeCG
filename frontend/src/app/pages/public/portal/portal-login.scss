@@ -38,6 +38,21 @@
     color: #7a8591;
   }
 
+  // Discret : les employés en ont besoin, les clients ne doivent pas s'y arrêter.
+  &__staff {
+    align-self: center;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #7a8591;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--color-primary);
+      text-decoration: underline;
+    }
+  }
+
   &__error {
     margin: 0;
     color: #c0392b;
