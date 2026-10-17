@@ -1,4 +1,4 @@
-import { verifyIdToken } from "../config/firebase.js";
+import { getFirebaseAuth } from "../config/firebase.js";
 import { logger } from "../config/logger.js";
 import { UnauthorizedError } from "../errors/Errors.js";
 import * as userService from "../components/user/user.service.js";
@@ -15,9 +15,12 @@ export async function requiredUserAuthenticated(req, res, next) {
 
   const token = authHeader.split(" ")[1];
 
+  // Hors du try : une config Firebase manquante doit sortir en 500, pas en « token invalide ».
+  const auth = getFirebaseAuth();
+
   let decodedToken;
   try {
-    decodedToken = await verifyIdToken(token);
+    decodedToken = await auth.verifyIdToken(token);
   } catch (error) {
     logger.error(`Auth error: ${error.message}`);
     throw new UnauthorizedError("Token d'authentification invalide ou expiré.");

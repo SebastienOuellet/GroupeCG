@@ -17,6 +17,7 @@ export const getRouteOptimizer = () => {
       : new GoogleRouteOptimizer({
         projectId: configService.get("GOOGLE_CLOUD_PROJECT_ID"),
         credentialFile: configService.get("GOOGLE_ROUTE_OPTIMIZATION_CREDENTIAL_FILE"),
+        credentialsJson: configService.get("GOOGLE_ROUTE_OPTIMIZATION_CREDENTIALS_JSON"),
         timeoutSeconds: configService.get("ROUTE_OPTIMIZATION_TIMEOUT_SECONDS"),
         validateOnly: configService.get("ROUTE_OPTIMIZATION_VALIDATE_ONLY")
       });

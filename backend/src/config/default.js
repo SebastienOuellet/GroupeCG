@@ -51,6 +51,8 @@ export const defaultConfig = {
   DB_PORT: Number(process.env.DB_PORT) || 5432,
 
   FIREBASE_CREDENTIAL_FILE: process.env.FIREBASE_CREDENTIAL_FILE,
+  /** Prod : contenu du JSON du service account (brut ou base64), prioritaire sur le fichier. */
+  FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
 
   LOG_LEVEL: process.env.LOG_LEVEL || "debug",
   LOG_FORMAT: process.env.LOG_FORMAT || "combined",
@@ -95,6 +97,8 @@ export const defaultConfig = {
   GOOGLE_CLOUD_PROJECT_ID: process.env.GOOGLE_CLOUD_PROJECT_ID,
   /** Fichier JSON du compte de service dans backend/googleConfig/ (non versionné). */
   GOOGLE_ROUTE_OPTIMIZATION_CREDENTIAL_FILE: process.env.GOOGLE_ROUTE_OPTIMIZATION_CREDENTIAL_FILE,
+  /** Prod : contenu du JSON du compte de service (brut ou base64), prioritaire sur le fichier. */
+  GOOGLE_ROUTE_OPTIMIZATION_CREDENTIALS_JSON: process.env.GOOGLE_ROUTE_OPTIMIZATION_CREDENTIALS_JSON,
 
   /* En-tête du contrat PDF. Les numéros TPS/TVQ sont obligatoires sur une facture au Québec. */
   COMPANY_NAME: process.env.COMPANY_NAME || "Groupe CG",

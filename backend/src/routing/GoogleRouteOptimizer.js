@@ -1,9 +1,9 @@
 import path from "node:path";
-import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { RouteOptimizer } from "./RouteOptimizer.js";
 import { hasCoordinates } from "./geo.js";
 import { ServiceUnavailableError } from "../errors/Errors.js";
+import { loadServiceAccount } from "../config/serviceAccount.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CREDENTIALS_DIR = path.resolve(__dirname, "../../googleConfig");
@@ -64,14 +64,16 @@ export const buildOptimizeToursRequest = ({ projectId, start, end, stops, timeou
 
 /**
  * Google Maps Platform — Route Optimization API (SKU Single Vehicle Routing).
- * Authentification par compte de service (pas une clé API) : JSON dans backend/googleConfig/.
+ * Authentification par compte de service (pas une clé API) : GOOGLE_ROUTE_OPTIMIZATION_CREDENTIALS_JSON
+ * (prod) ou fichier JSON dans backend/googleConfig/ (dev).
  * Le client est chargé à la première optimisation : le serveur démarre sans credentials.
  */
 export class GoogleRouteOptimizer extends RouteOptimizer {
-  constructor({ projectId, credentialFile, timeoutSeconds = 30, validateOnly = false, client = null }) {
+  constructor({ projectId, credentialFile, credentialsJson, timeoutSeconds = 30, validateOnly = false, client = null }) {
     super();
     this.projectId = projectId;
     this.credentialFile = credentialFile;
+    this.credentialsJson = credentialsJson;
     this.timeoutSeconds = timeoutSeconds;
     this.validateOnly = validateOnly;
     this.client = client;
@@ -83,15 +85,26 @@ export class GoogleRouteOptimizer extends RouteOptimizer {
 
   async getClient() {
     if (this.client) return this.client;
-    if (!this.projectId || !this.credentialFile) {
-      throw new ServiceUnavailableError("Optimisation Google non configurée (GOOGLE_CLOUD_PROJECT_ID / GOOGLE_ROUTE_OPTIMIZATION_CREDENTIAL_FILE).");
+    if (!this.projectId) {
+      throw new ServiceUnavailableError("Optimisation Google non configurée (GOOGLE_CLOUD_PROJECT_ID).");
     }
-    const keyFilename = path.join(CREDENTIALS_DIR, this.credentialFile);
-    if (!existsSync(keyFilename)) {
-      throw new ServiceUnavailableError(`Compte de service Google introuvable : backend/googleConfig/${this.credentialFile}.`);
+    let account;
+    try {
+      account = loadServiceAccount({
+        json: this.credentialsJson,
+        jsonVar: "GOOGLE_ROUTE_OPTIMIZATION_CREDENTIALS_JSON",
+        dir: CREDENTIALS_DIR,
+        file: this.credentialFile,
+        fileVar: "GOOGLE_ROUTE_OPTIMIZATION_CREDENTIAL_FILE"
+      });
+    } catch (error) {
+      throw new ServiceUnavailableError(`Optimisation Google : ${error.message}`);
     }
     const { RouteOptimizationClient } = await import("@googlemaps/routeoptimization");
-    this.client = new RouteOptimizationClient({ keyFilename });
+    this.client = new RouteOptimizationClient({
+      projectId: this.projectId,
+      credentials: { client_email: account.client_email, private_key: account.private_key }
+    });
     return this.client;
   }
 

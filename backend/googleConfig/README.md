@@ -13,3 +13,9 @@ ROUTE_OPTIMIZATION_DRY_RUN=false
 
 Les `*.json` de ce dossier sont ignorés par git : ne jamais committer ce fichier.
 Voir `PLAN-ROUTES-GOOGLE.md`, phase R0.
+
+## En prod (App Platform, Docker)
+
+Ce dossier n'est pas déployé. Mettre le contenu du JSON, encodé en base64, dans
+`GOOGLE_ROUTE_OPTIMIZATION_CREDENTIALS_JSON` (cochée *Encrypt*) ; même commande que dans
+`backend/firebaseConfig/README.md`. La variable est prioritaire sur le fichier.

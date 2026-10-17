@@ -1,10 +1,10 @@
 import firebaseAppAdmin from "firebase-admin";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { existsSync } from "node:fs";
 import { logger } from "./logger.js";
 import { ConfigService } from "./configService.js";
 import { InternalServerError } from "../errors/Errors.js";
+import { loadServiceAccount } from "./serviceAccount.js";
 
 const configService = new ConfigService();
 
@@ -14,8 +14,8 @@ const __dirname = dirname(__filename);
 let app;
 
 /**
- * Initialise (une seule fois) l'app Firebase Admin à partir du service account
- * référencé par FIREBASE_CREDENTIAL_FILE dans backend/firebaseConfig/.
+ * Initialise (une seule fois) l'app Firebase Admin à partir du service account :
+ * FIREBASE_SERVICE_ACCOUNT_JSON (prod) ou FIREBASE_CREDENTIAL_FILE dans backend/firebaseConfig/ (dev).
  * Volontairement paresseux: le serveur doit pouvoir démarrer (ex. /api/health)
  * même avant qu'un projet Firebase soit configuré.
  */
@@ -27,22 +27,23 @@ const getFirebaseApp = () => {
     return app;
   }
 
-  const credentialFile = configService.get("FIREBASE_CREDENTIAL_FILE");
-  if (!credentialFile) {
-    throw new InternalServerError(
-      "FIREBASE_CREDENTIAL_FILE n'est pas défini dans le .env. Ajoutez le fichier de service account Firebase dans backend/firebaseConfig/ et référencez son nom dans le .env."
-    );
-  }
-
-  const serviceAccountPath = join(__dirname, "../../firebaseConfig/", credentialFile);
-  if (!existsSync(serviceAccountPath)) {
-    throw new InternalServerError(
-      `Fichier de credentials Firebase introuvable: ${serviceAccountPath}. Déposez le JSON du service account dans backend/firebaseConfig/.`
-    );
+  let serviceAccount;
+  try {
+    serviceAccount = loadServiceAccount({
+      json: configService.get("FIREBASE_SERVICE_ACCOUNT_JSON"),
+      jsonVar: "FIREBASE_SERVICE_ACCOUNT_JSON",
+      dir: join(__dirname, "../../firebaseConfig/"),
+      file: configService.get("FIREBASE_CREDENTIAL_FILE"),
+      fileVar: "FIREBASE_CREDENTIAL_FILE"
+    });
+  } catch (error) {
+    // 500 et non 401 : c'est la config du serveur qui manque, pas le token de l'utilisateur.
+    logger.error(`Firebase Admin : ${error.message}`);
+    throw new InternalServerError("Authentification indisponible : Firebase n'est pas configuré sur le serveur.");
   }
 
   app = firebaseAppAdmin.initializeApp({
-    credential: firebaseAppAdmin.credential.cert(serviceAccountPath)
+    credential: firebaseAppAdmin.credential.cert(serviceAccount)
   });
   return app;
 };
@@ -53,8 +54,7 @@ const getFirebaseApp = () => {
  * @returns {Promise<import("firebase-admin/auth").DecodedIdToken>}
  */
 export const verifyIdToken = async (token) => {
-  return getFirebaseApp()
-    .auth()
+  return getFirebaseAuth()
     .verifyIdToken(token)
     .catch((error) => {
       logger.error(`Firebase token verification failed: ${error.message}`);
