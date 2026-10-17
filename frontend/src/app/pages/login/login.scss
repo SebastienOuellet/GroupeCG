@@ -29,6 +29,21 @@
     font-size: 0.875rem;
   }
 
+  // Pendant du lien « Accès employés » du portail : un client arrivé ici par erreur repart en un clic.
+  &__back {
+    align-self: center;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #7a8591;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--color-primary);
+      text-decoration: underline;
+    }
+  }
+
   &__warning {
     margin: 0;
     padding: 0.625rem 0.75rem;
